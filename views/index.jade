@@ -1,0 +1,24 @@
+extends layout
+
+head
+    //include bootstrap
+
+    block content
+        div.navbar.navbar-inverse.navbar-fixed-top
+            div.navbar-inner
+                div.container
+                    ul.nav
+                        li.active
+                            a.brand(href="#") Psycloudia
+                        li
+                            a(href="/tasks/LexDecision/LexDecision.html") Lexical Decision
+                        li
+                            a(href="/tasks/Kinetic/KineticTest.html") Kinetic Test
+                        li
+                            a(href="/tasks/Capabilities/CapabilitiesDemo.html") Demo Test
+            div.container
+                div.hero-unit
+                    h1 Psycloudia!
+                    p This is a little spiel about psycloud
+                    p
+                        a.btn.btn-primary.btn-large(href="#") Learn more &raquo

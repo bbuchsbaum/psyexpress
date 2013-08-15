@@ -1,0 +1,11 @@
+!!! 5
+html
+    head
+        title= title
+        -each script in scripts
+            script(type='text/javascript', src=script)
+        link(rel='stylesheet', href='/stylesheets/bootstrap.css')
+        //link(rel='stylesheet', href='/stylesheets/custom.css')
+    body
+        #content
+            block content
