@@ -115,6 +115,29 @@ class DataTable
 
   @build: (vars={ }) -> Object.seal(new DataTable(vars))
 
+  @rbind: (tab1, tab2) ->
+    keys1 = _.keys(tab1)
+    keys2 = _.keys(tab2)
+    sharedKeys = _.intersection(keys1, keys2)
+
+    out = {}
+    for name in sharedKeys
+      out[name] = tab1[name].concat(tab2[name])
+
+    new DataTable(out)
+
+  @cbind: (tab1, tab2) ->
+    if (tab1.nrow() != tab2.nrow())
+      throw "cbind requires arguments to have same number of rows"
+
+    out = _.cloneDeep(tab1)
+    diffkeys = _.difference(_.keys(tab2), _.keys(tab1))
+    for key in diffkeys
+      out[key] = tab2[key]
+
+    out
+
+
   @expand: (vars={}, unique=true, nreps=1) ->
     if unique
       out = {}
@@ -313,6 +336,8 @@ class VarSpec
 
   valueAt: (block, trial) ->
 
+
+
 exports.FactorSpec =
 class FactorSpec extends VarSpec
 
@@ -498,6 +523,7 @@ class ExpDesign
 
     crossedSampler = @makeConditionalSampler(@crossedSpec, crossedItems)
 
+    console.log("crossed expanded", @crossedSpec.expanded)
     console.log("record", crossedSampler.take(5))
 
 
@@ -579,13 +605,26 @@ class ExpDesign
             maxDuration: 3000
             minDuration: 500
 
-exp = new ExpDesign(@LexDesign)
+#exp = new ExpDesign(@LexDesign)
 #console.log(exp)
 #exp = new Experiment(@LexDesign)
 #console.log(exp)
 #exp.start(new ExperimentContext())
 
-#x = new DataTable({ x: [1,2,3], y: [3,4,5]})
+x = new DataTable({ x: [1,2,3], y: [3,4,5]})
+x2 = new DataTable({ x: [4,5,6], y: [4,66,88]})
+x3 = new DataTable({ x: [44,54,66], y: [46,666,868]})
+
+out = DataTable.rbind(x,x2)
+console.log(out)
+console.log(x)
+console.log(x2)
+
+y = new DataTable({ j: [3,3,3], k: [6,6,6], x: [777,777,777]}, z: [1,1,1,1])
+console.log(DataTable.cbind(x, y))
+
+out = _.reduce([x,x2,x3], (sum, nex) -> DataTable.rbind(sum, nex))
+console.log(out)
 
 f1 = new FactorSpec(5,3,"wordtype", ["word", "nonword"])
 f2 = new FactorSpec(5,3,"syllables", [1, 2])
