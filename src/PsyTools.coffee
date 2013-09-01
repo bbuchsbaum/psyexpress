@@ -30,9 +30,18 @@ rep = (vec, times) ->
     out = _.times(times[0], (n) => vec)
     _.flatten(out)
 
+repLen = (vec, length) ->
+
+  if (length < 1)
+    throw "repLen: length must be greater than or equal to 1"
+
+  for i in [0...length]
+    vec[i % vec.length]
+
 
 
 exports.rep = rep
+exports.repLen = repLen
 #exports.seqalong = seqalong
 
 # ## Sampler
@@ -258,6 +267,13 @@ class DataTable
     this
 
 
+exports.StimFactory =
+class StimFactory
+  makeStimulus(name, params)
+
+exports.MockStimFactory =
+  class StimFactory
+    makeStimulus: (name, params) -> { name, params }
 
 exports.ExperimentContext =
 class ExperimentContext
@@ -269,22 +285,47 @@ class Experiment
   constructor: (@designSpec) ->
     @design = new ExpDesign(@designSpec)
 
-    @display = @designSpec["Display"]
-    @trialGenerator = @display["Trial"]
+    @display = @designSpec.Display
+
+    @trialGenerator = @display.Trial
+
+    @stimFactory = new MockStimFactory()
 
     console.log(@display)
+
+  buildStimuli: (event) ->
+    stimType = _.keys(event)[0]
+    params =  _.values(event)[0]
+
+    console.log(stimType, ":::", params)
+
+    switch stimType
+      when "FixationCross" then
+
+
+
+  buildTrial: (eventSpec) ->
+    console.log("event spec", eventSpec)
+    console.log("keys ", _.keys(eventSpec))
+
+    for key, value of eventSpec
+      stims = _.omit(value, "Next")
+      next = _.pick(value, "Next")
+      console.log("stims: ", stims)
+      console.log("next: ", next)
+      @buildStimuli(stims)
 
 
   start: (@context) ->
     #@context = new ExperimentContext(@stage)
     numBlocks =  @design.blocks
-    trials = @design.blockTrials(0)
+    trials = @design.fullDesign
     console.log(trials.nrow())
     for i in [0 ... trials.nrow()]
       console.log(trials.record(i))
       trial = trials.record(i)
       gentrial = @trialGenerator(trial)
-      #console.log(gentrial)
+      @buildTrial(gentrial)
 
 # ## ConditionalSampler
 exports.ConditionalSampler =
@@ -313,14 +354,15 @@ exports.ConditionalSampler =
 
     constructor: (@items, @itemMap, @factorSpec) ->
       @keyMap = @makeItemSubsets()
+      @conditions = _.keys(@keyMap)
       @samplerSet = {}
 
       for key, value of @keyMap
          @samplerSet[key] = new ExhaustiveSampler(value)
 
     take: (n) ->
-      keys = rep(_.keys(@keyMap), n)
-      @takeCondition(keys)
+      keys = repLen(@conditions, n)
+      _.flatten(@takeCondition(keys))
 
     takeCondition: (keys) -> (@samplerSet[key].take(1) for key in keys)
 
@@ -357,7 +399,12 @@ class FactorSpec extends VarSpec
     prop = {}
     prop[@name] = @levels
     vset = new DataTable(prop)
-    vset.replicate(reps) for i in [1..nblocks]
+
+    blocks = for i in [1..nblocks]
+      vset.replicate(reps)
+    concatBlocks = _.reduce(blocks, (sum, nex) -> DataTable.rbind(sum, nex))
+    concatBlocks.bindcol("BLOCK", rep([1..nblocks], rep(reps*vset.nrow(), nblocks)))
+    concatBlocks
 
   valueAt: (block, trial) -> @expanded[block][@name][trial]
 
@@ -375,7 +422,11 @@ class CrossedFactorSpec extends VarSpec
   names: -> @parentNames
 
   expand: (nblocks, reps) ->
-    @conditionTable.replicate(reps) for i in [1..nblocks]
+    blocks = for i in [1..nblocks]
+      @conditionTable.replicate(reps)
+    concatBlocks = _.reduce(blocks, (sum, nex) -> DataTable.rbind(sum, nex))
+    concatBlocks.bindcol("BLOCK", rep([1..nblocks], rep(reps*@conditionTable.nrow(), nblocks)))
+    concatBlocks
 
   valueAt: (block, trial) ->
     @expanded[block][name][trial] for name in @parentNames
@@ -391,24 +442,24 @@ class ExpDesign
   @blocks = 1
 
 
-  blockTrials: (blocknum) ->
-    @design[blocknum]
+  #blockTrials: (blocknum) ->
+  #  @design[blocknum]
 
-  ncells: (includeBlock=false) ->
-    if (includeBlock)
-      @crossedCells.nrow() * @blocks
-    else
-      @crossedCells.nrow()
+  #ncells: (includeBlock=false) ->
+  #  if (includeBlock)
+  #    @crossedCells.nrow() * @blocks
+  #  else
+  #    @crossedCells.nrow()
 
 
-  ntrials: (byBlock=false) ->
-    blen = _.map(@design, (x) -> x.nrow())
-    if (byBlock)
-      blen
-    else
-      _.reduce(blen, (sum, num) -> sum + num)
+  #ntrials: (byBlock=false) ->
+  #  blen = _.map(@design, (x) -> x.nrow())
+  #  if (byBlock)
+  #    blen
+  #  else
+  #    _.reduce(blen, (sum, num) -> sum + num)
 
-  crossVariables: (vars) -> DataTable.expand(vars)
+  #crossVariables: (vars) -> DataTable.expand(vars)
 
   @validate: (spec) ->
     if (!("Design" of spec))
@@ -428,11 +479,10 @@ class ExpDesign
     # assumes we have only one set of crossed items ....
   #  res[0]
 
-  @expandBlocks: (nblocks, reps, vars...) ->
-    res = for vset in vars
-      (vset.replicate(reps) for i in [1..nblocks])
-
-    console.log(res)
+  #@expandBlocks: (nblocks, reps, vars...) ->
+  #  res = for vset in vars
+  #    (vset.replicate(reps) for i in [1..nblocks])
+  #  console.log(res)
 
 
 
@@ -460,8 +510,6 @@ class ExpDesign
     _.zipObject(keySet, itemSets)
 
 
-  @makeSampler: () ->
-    # given a Data
 
   init: (spec) ->
     @design = spec["Design"]
@@ -518,22 +566,10 @@ class ExpDesign
     @crossedSpec = @makeCrossedSpec(@crossed, @blocks, @reps_per_block)
     crossedItems = @itemSpec.Crossed
 
-    #crossedItemMap = (crossedItems[crossedItemName][key] for key in _.keys(@crossed))
-    #crossedItemMap = _.zipObject(_.keys(@crossed), crossedItemMap)
-
     crossedSampler = @makeConditionalSampler(@crossedSpec, crossedItems)
 
-    console.log("crossed expanded", @crossedSpec.expanded)
-    console.log("record", crossedSampler.take(5))
+    @fullDesign = @crossedSpec.expanded.bindcol(_.keys(crossedItems)[0], crossedSampler.take(@crossedSpec.expanded.nrow()))
 
-
-    # need a structure that encapsulates crossed and uncrossed variables and can sample them
-    # 1. each variable or variable combination is first expanded
-    # 2. following expansion, it is placed in a key value data structure, where the key is the variable name/combination and the value is the condition
-    # 3. Conditional Sampler could "know" about the conditional design, so that "take" extracts the correct value-pair.
-    # 4. This array of samplers is used to generate the items. The items then are bound back in to the experimental design.
-    # 5. use sampler type to generate sampler
-    # 6. wrap everything up in a big data table
     console.log(@crossedDesign)
 
 
@@ -557,9 +593,9 @@ class ExpDesign
           type: "Factor"
           levels: [1, 2]
 
-      Auxiliary:
-        isi:
-          type: "Continuous"
+      #Auxiliary:
+      #  isi:
+      #    type: "Continuous"
 
     Structure:
       type: "Block"
@@ -579,12 +615,12 @@ class ExpDesign
         sampler:
           type: "Exhaustive"
 
-    Auxiliary:
-      isi:
-        sampler:
-          type: "Uniform"
-          min: 300
-          max: 3000
+    #Auxiliary:
+    #  isi:
+    #    sampler:
+    #      type: "Uniform"
+    #      min: 300
+    #      max: 3000
 
 
 
@@ -594,10 +630,10 @@ class ExpDesign
       1:
         FixationCross: length: 100, strokeWidth: 5
         Next:
-          Timeout: trial.isi
+          Timeout: 2000
       2:
         Text:
-          x:0, y:0, content: trial.word
+          x:0, y:0, content: trial.words
         Next:
           KeyPressed:
             keys: ['a', 'b']
@@ -605,38 +641,8 @@ class ExpDesign
             maxDuration: 3000
             minDuration: 500
 
+
 #exp = new ExpDesign(@LexDesign)
-#console.log(exp)
-#exp = new Experiment(@LexDesign)
-#console.log(exp)
-#exp.start(new ExperimentContext())
+exp = new Experiment(@LexDesign)
+exp.start()
 
-x = new DataTable({ x: [1,2,3], y: [3,4,5]})
-x2 = new DataTable({ x: [4,5,6], y: [4,66,88]})
-x3 = new DataTable({ x: [44,54,66], y: [46,666,868]})
-
-out = DataTable.rbind(x,x2)
-console.log(out)
-console.log(x)
-console.log(x2)
-
-y = new DataTable({ j: [3,3,3], k: [6,6,6], x: [777,777,777]}, z: [1,1,1,1])
-console.log(DataTable.cbind(x, y))
-
-out = _.reduce([x,x2,x3], (sum, nex) -> DataTable.rbind(sum, nex))
-console.log(out)
-
-f1 = new FactorSpec(5,3,"wordtype", ["word", "nonword"])
-f2 = new FactorSpec(5,3,"syllables", [1, 2])
-f3 = f1.cross(f2)
-f4 = new CrossedFactorSpec(5,3, f1,f2)
-#console.log("ctable: ", f4.conditionTable)
-#console.log(f1.factorSet)
-#console.log(f1.conditionTable)
-#console.log(f3.names)
-#console.log(f3.levels)
-#console.log(f3.table)
-#console.log(f1.expand(5,5))
-#console.log(f3.expanded)
-#console.log(f1.ntrials())
-#console.log(f3.valueAt(1,3))
