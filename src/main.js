@@ -2,7 +2,7 @@
 (function() {
   var Exp, Psy, key, value;
 
-  Exp = require("./Experiment");
+  Exp = require("./Elements");
 
   Psy = require("./Psytools");
 

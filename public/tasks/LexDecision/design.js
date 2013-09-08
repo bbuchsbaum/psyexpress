@@ -2,67 +2,67 @@
 (function() {
 
   this.LexDesign = {
-    Variables: {
-      wordtype: {
-        type: "Factor",
-        levels: ["word", "nonword"],
-        crossed: true
+    Design: {
+      Variables: {
+        Crossed: {
+          wordtype: {
+            type: "Factor",
+            levels: ["word", "nonword"]
+          },
+          syllables: {
+            type: "Factor",
+            levels: [1, 2]
+          }
+        }
       },
-      syllables: {
-        type: "Factor",
-        levels: [1, 2],
-        crossed: true
-      },
-      isi: {
-        type: "Continuous",
-        range: [200, 3000],
-        distribution: "Uniform"
+      Structure: {
+        type: "Block",
+        blocks: 8,
+        reps_per_block: 4
       }
-    },
-    Structure: {
-      type: "Block",
-      blocks: 8,
-      reps_per_block: 4
     },
     Items: {
-      word: {
-        values: ["hello", "goodbye", "flirg", "schmirt", "black", "sweetheart", "grum", "snirg", "snake", "pet", "hirble", "kerble"],
-        attributes: {
+      Crossed: {
+        words: {
+          values: ["hello", "goodbye", "flirg", "schmirt", "black", "sweetheart", "grum", "snirg", "snake", "pet", "hirble", "kerble"],
           wordtype: ["word", "word", "nonword", "nonword", "word", "word", "nonword", "nonword", "word", "word", "nonword", "nonword"],
-          syllables: [2, 2, 1, 1, 1, 2, 1, 1, 1, 1, 2, 2]
-        },
-        sampler: {
-          type: "Exhaustive"
+          syllables: [2, 2, 1, 1, 1, 2, 1, 1, 1, 1, 2, 2],
+          sampler: {
+            type: "Exhaustive"
+          }
         }
       }
-    }
-  };
-
-  this.LexTask = {
-    Default: function(trial) {
-      return {
-        1: {
-          Blank: {
-            background: "white"
+    },
+    Display: {
+      Trial: function(trial) {
+        return {
+          1: {
+            FixationCross: {
+              length: 100,
+              strokeWidth: 5
+            },
+            Next: {
+              Timeout: {
+                duration: 2000
+              }
+            }
           },
-          Next: {
-            Timeout: trial.isi
-          }
-        },
-        2: {
-          Text: {
-            x: 0,
-            y: 0,
-            content: trial.word
-          },
-          Next: {
-            KeyPressed: {
-              keys: ['a', 'b'],
-              correct: trial.wordtype === "word" ? 'a' : 'b'
+          2: {
+            Text: {
+              x: 0,
+              y: 0,
+              content: trial.words
+            },
+            Next: {
+              KeyPressed: {
+                keys: ['a', 'b'],
+                correct: trial.wordtype === "word" ? 'a' : 'b',
+                timeout: 3000
+              }
             }
           }
-        }
-      };
+        };
+      }
     }
   };
 

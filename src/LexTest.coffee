@@ -1,3 +1,6 @@
+Psy = require("./Psytools")
+Exp = require("./Elements")
+
 
 @LexDesign =
 
@@ -45,13 +48,13 @@
 
   Display:
     Trial: (trial) ->
-      #console.log(trial)
+      ##Fixed:
       1:
         FixationCross: length: 100, strokeWidth: 5
         Next:
-          Timeout:
-            duration: 2000
+          Timeout: 2000
       2:
+        # Clear: false ... this would not clear previous element
         Text:
           x:0, y:0, content: trial.words
         Next:
@@ -59,3 +62,8 @@
             keys: ['a', 'b']
             correct: if trial.wordtype is "word" then 'a' else 'b'
             timeout: 3000
+
+
+#exp = new ExpDesign(@LexDesign)
+exp = new Psy.Experiment(@LexDesign, new Exp.KineticStimFactory())
+exp.start()
