@@ -1,4 +1,4 @@
-Psy = require("./Psytools")
+Psy = require("./PsyCloud")
 Bacon = require("./lib/Bacon").Bacon
 _ = require('lodash')
 Q = require("q")
@@ -45,7 +45,6 @@ exports.Timeout =
 class Timeout extends Response
 
   constructor: (spec = {}) ->
-    console.log("constructing Timeout", spec)
     @spec = _.defaults(spec, { duration: 2000 } )
 
   activate: (context) ->
@@ -87,7 +86,7 @@ class TypedResponse
 
     keyStream = context.keypressStream()
     keyStream.takeWhile((x) => enterPressed is false).onValue((event) =>
-      console.log("got key", event)
+
       if event.keyCode == 13
         enterPressed = true
         deferred.resolve(freeText)
@@ -123,8 +122,7 @@ class MousepressResponse extends Response
 exports.KeypressResponse =
 class KeypressResponse extends Response
   constructor: (@spec = {}) ->
-    @spec = _.defaults(@spec, { keys: ['a', 'b'], correct: ['a'], timeout: 3000} )
-    console.log("keyset is ", @spec.keys)
+    @spec = _.defaults(@spec, { keys: ['n', 'm'], correct: ['n'], timeout: 3000} )
 
   activate: (context) ->
     deferred = Q.defer()
@@ -133,7 +131,11 @@ class KeypressResponse extends Response
       char = String.fromCharCode(event.keyCode)
       console.log(char)
       console.log(event.keyCode)
-      _.contains(@spec.keys, char)).take(1).onValue((event) =>
+      _.contains(@spec.keys, char)).take(1).onValue((filtered) =>
+                                Acc = _.contains(@spec.correct, String.fromCharCode(filtered.keyCode))
+                                console.log("Acc", Acc)
+                                context.logEvent("$ACC", Acc)
+
                                 deferred.resolve(event))
 
     deferred.promise
@@ -143,7 +145,7 @@ class SpaceKeyResponse extends Response
   constructor: (@spec = {}) ->
 
   activate: (context) ->
-    console.log("activating space key response")
+
     deferred = Q.defer()
     keyStream = context.keypressStream()
     keyStream.filter((event) =>
@@ -170,13 +172,12 @@ class ClickResponse extends Response
 
   activate: (context) ->
     element = context.stage.get("#" + @id)
-    console.log("GOT element by ID", element)
+
     if not element
       throw "cannot find element with id" + @id
 
     deferred = Q.defer()
     element.on "click", (ev) =>
-      console.log("GOT mouse click", element)
       deferred.resolve(ev)
 
     deferred.promise
@@ -184,13 +185,13 @@ class ClickResponse extends Response
 
 exports.Stimulus =
 class Stimulus
-  spec: {}
+  spec: { }
 
   overlay: false
 
   constructor: ->
 
-  render: (context) ->
+  render: (context, layer) ->
 
   stop: ->
 
@@ -202,7 +203,6 @@ class Sound
 
   constructor: (@url) ->
     @sound = new buzz.sound(@url)
-
 
   render: (context) ->
     @sound.play()
@@ -216,8 +216,7 @@ class Picture extends Stimulus
     @image = null
 
     @imageObj.onload = =>
-      console.log("imageObj width ", @imageObj.width)
-      console.log("imageObj height ", @imageObj.height)
+
       @image = new Kinetic.Image({
         x: @spec.x,
         y: @spec.y,
@@ -230,8 +229,8 @@ class Picture extends Stimulus
 
 
 
-  render: (context) ->
-    context.contentLayer.add(@image)
+  render: (context, layer) ->
+    layer.add(@image)
     #context.contentLayer.draw()
 
 
@@ -241,11 +240,35 @@ class Group extends Stimulus
   constructor: (@stims) ->
     @overlay = true
 
-  render: (context) ->
-    console.log("rendering group")
+  render: (context, layer) ->
     for stim in @stims
-      stim.render(context)
-    console.log("done rendering group")
+      stim.render(context, layer)
+
+
+exports.Background =
+class Background extends Stimulus
+
+  constructor:  (@stims=[], @fill= "white") ->
+    @background = new Kinetic.Rect({x:0, y:0, width:0, height:0, fill: @fill})
+
+  render: (context, layer) ->
+    @background = new Kinetic.Rect({
+      x: 0,
+      y: 0,
+      width: context.width(),
+      height: context.height(),
+      name: 'background'
+      fill: @fill
+    })
+
+    console.log("rendering background")
+    layer.add(@background)
+
+    for stim in @stims
+      console.log("rendering stim background")
+      stim.render(context, layer)
+
+
 
 exports.Sequence =
 class Sequence extends Stimulus
@@ -258,49 +281,23 @@ class Sequence extends Stimulus
     @onsets = for i in [0...@soa.length]
       _.reduce(@soa[0..i], (x, acc) -> x + acc)
 
-    console.log("@soa ", @soa)
-    console.log("@onsets", @onsets)
 
-  render: (context) ->
+
+  render: (context, layer) ->
     _.forEach([0...@stims.length], (i) =>
       ev = new Timeout({duration: @onsets[i]})
       stim = @stims[i]
-      console.log("stim ", stim)
+
       ev.activate(context).then(=>
         if not @stopped
           if @clear
             context.clearContent()
           stim.render(context)
-          context.contentLayer.draw()))
+          layer.draw()))
 
   stop: ->
     console.log("stopping Sequence!")
     @stopped = true
-
-
-    #for ev in events
-    #  ev.start(context)
-    #funlist = _.map(events, (ev) => (=> ev.activate(context)))
-
-    #funlist = _.map(@events, (ev) => (=> ev.start(context)))
-
-    #result = Q.resolve(0)
-
-    #stimfuns = _.zip(@stims, funlist)
-    #console.log(stimfuns)
-    #_.map(stimfuns, (sfun) ->
-
-    #for i in [0...@stims.length]
-    #  console.log("propagating promise", i)
-    #  result = result.then(=>
-    #    console.log("rendering sequence item ", i)
-    #    funlist[i]())
-
-        #@stims[i].render(context)
-        #funlist[i]()
-
-    #Q.allSettled(result)
-
 
 
 exports.Blank =
@@ -310,37 +307,38 @@ class Blank extends Stimulus
     @spec = _.defaults(spec, { fill: "white" })
 
 
-  render: (context) ->
+  render: (context, layer) ->
     blank = new Kinetic.Rect({ x: 0, y: 0, width: context.width(), height: context.height(), fill: @spec.fill })
-    context.contentLayer.add(blank)
-    #context.contentLayer.draw()
+    layer.add(blank)
 
 
 exports.Clear =
 class Clear extends Stimulus
   constructor: (@spec = {}) ->
 
-  render: (context) ->
+  render: (context, layer) ->
     context.clearContent(true)
 
 exports.Rectangle =
 class Rectangle extends Stimulus
   constructor: (spec = {}) ->
-    @spec = _.defaults(spec, { x: 0, y: 0, width: 100, height: 100, strokeWidth: 6, fill: 'red', stroke: 'red'})
+    @spec = _.defaults(spec, { x: 0, y: 0, width: 100, height: 100, fill: 'red'})
+    @spec = _.omit(@spec, (value, key) -> not value)
 
-  render: (context) ->
+
+  render: (context, layer) ->
     rect = new Kinetic.Rect({ x: @spec.x, y: @spec.y, width: @spec.width, height: @spec.height, fill: @spec.fill, stroke: @spec.stroke, strokeWidth: @spec.strokeWidth })
-    context.contentLayer.add(rect)
-    #context.contentLayer.draw()
+    layer.add(rect)
+
 
 exports.Circle =
 class Circle extends Stimulus
     constructor: (spec = {}) ->
-      @spec = _.defaults(spec, { x: 100, y: 100, radius: 50, strokeWidth: 6, fill: 'red'})
+      @spec = _.defaults(spec, { x: 100, y: 100, radius: 50, fill: 'red'})
 
-    render: (context) ->
+    render: (context, layer) ->
       circ = new Kinetic.Circle({ x: @spec.x, y: @spec.y, radius: @spec.radius, fill: @spec.fill, stroke: @spec.stroke, strokeWidth: @spec.strokeWidth })
-      context.contentLayer.add(circ)
+      layer.add(circ)
       #context.contentLayer.draw()
 
 
@@ -352,18 +350,18 @@ class FixationCross extends Stimulus
   constructor: (spec = {}) ->
     @spec = _.defaults(spec, { strokeWidth: 8, length: 150, fill: 'black'})
 
-  render: (context) ->
+  render: (context, layer) ->
 
     x = context.width()/2
     y = context.height()/2
 
     horz = new Kinetic.Rect({ x: x - @spec.length/2, y: y, width: @spec.length, height: @spec.strokeWidth, fill: @spec.fill })
     vert = new Kinetic.Rect({ x: x - @spec.strokeWidth/2, y: y - @spec.length/2 + @spec.strokeWidth/2, width: @spec.strokeWidth, height: @spec.length, fill: @spec.fill })
-    layer = new Kinetic.Layer()
-    layer.add(horz)
-    layer.add(vert)
+    group = new Kinetic.Group()
+    group.add(horz)
+    group.add(vert)
 
-    context.contentLayer.add(layer)
+    layer.add(group)
 
 
 exports.CanvasBorder =
@@ -371,9 +369,9 @@ class CanvasBorder extends Stimulus
   constructor: (spec = {}) ->
     @spec = _.defaults(spec, { strokeWidth: 5, stroke: "black" })
 
-  render: (context) ->
+  render: (context, layer) ->
     border = new Kinetic.Rect({ x: 0, y: 0, width: context.width(), height: context.height(), strokeWidth: @spec.strokeWidth, stroke: @spec.stroke })
-    context.contentLayer.add(border)
+    layer.add(border)
 
 
 exports.StartButton =
@@ -382,7 +380,7 @@ class StartButton extends Stimulus
 
     @spec = _.defaults(spec, { width: 150, height: 75 })
 
-  render: (context) ->
+  render: (context, layer) ->
 
     xcenter = context.width()/2
     ycenter = context.height()/2
@@ -394,7 +392,7 @@ class StartButton extends Stimulus
     group.add(button)
     group.add(text)
 
-    context.contentLayer.add(group)
+    layer.add(group)
 
 
 position = (pos, offx, offy, width, height, xy) ->
@@ -417,12 +415,9 @@ class Text extends Stimulus
     @spec = _.defaults(spec, { content: "Text", x: 100, y: 100, fill: "black", fontSize: 50, fontFamily: "Arial", lineHeight: 1, textAlign: "center", position: null} )
 
 
-  render: (context) ->
-    console.log("offset x: " + context.offsetX())
-    console.log("offset y: " + context.offsetY())
+  render: (context, layer) ->
+    #console.log("trial meta ", context.currentTrial.meta)
 
-
-    console.log("content ", @spec.content)
     text = new Kinetic.Text({
       x: @spec.x,
       y: @spec.y,
@@ -435,17 +430,10 @@ class Text extends Stimulus
 
     if @spec.position
       xy = position(@spec.position, -text.getWidth()/2, -text.getHeight()/2, context.width(), context.height(), [@spec.x, @spec.y])
-      console.log("xy", xy)
       text.setPosition({x:xy[0], y:xy[1]})
 
-    #layer = new Kinetic.Layer()
-    #layer.add(text)
-    #layer.setListening(false)
+    layer.add(text)
 
-    #text = new fabric.Text(@spec.content, { top: @spec.top, left: @spec.left, fontSize: @spec.fontSize, fill: @spec.fill, fontFamily: @spec.fontFamily, lineHeight: @spec.lineHeight, textAlign: @spec.textAlign})
-    context.contentLayer.add(text)
-    ## don't necessarily want to redraw
-    #context.contentLayer.draw()
 
 
 
@@ -454,37 +442,43 @@ exports.KineticContext =
 class KineticContext extends Psy.ExperimentContext
 
   constructor: (@stage) ->
-    @contentLayer = new Kinetic.Layer()
-    #@eventLayer = new Kinetic.Layer()
+    @contentLayer = new Kinetic.Layer({clearBeforeDraw: true})
+    @backgroundLayer = new Kinetic.Layer({clearBeforeDraw: true})
+    @background = new Background([], fill: "white")
 
-    @background = new Kinetic.Rect({
-      x: 0,
-      y: 0,
-      width: stage.getWidth(),
-      height: stage.getHeight(),
-      name: 'background'
 
-    })
 
-    @contentLayer.add(@background)
-
+    @stage.add(@backgroundLayer)
     @stage.add(@contentLayer)
-    #@stage.add(@eventLayer)
 
-    @background.on("click", -> console.log("background layer click"))
-    #@eventRect.on("mousedown", () -> console.log("event rect mouse down"))
+
+    @backgroundLayer.on("click", -> console.log("background layer click"))
+
     @stage.on("mousedown", -> console.log("stage mouse down"))
     @stage.getContent().addEventListener('mousedown', () -> console.log("stage dom click"))
 
+  setBackground: (newBackground) ->
+    @background = newBackground
+    @backgroundLayer.removeChildren()
+    @background.render(this, @backgroundLayer)
+
+  drawBackground: -> @backgroundLayer.draw()
+
+  clearBackground: ->
+    @backgroundLayer.removeChildren()
+
   clearContent: (draw=false) ->
-    console.log("clearing base layer")
     @contentLayer.removeChildren()
-    @contentLayer.add(@background)
-    #@eventLayer.moveToTop()
-    @contentLayer.draw() if draw
+    if draw
+
+      @draw()
+
+
 
   draw: ->
+    @backgroundLayer.draw()
     @contentLayer.draw()
+    #@stage.draw()
 
 
   width: -> @stage.getWidth()

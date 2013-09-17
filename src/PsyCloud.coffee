@@ -119,6 +119,20 @@ exports.DataTable =
       for i in [0...@nrow()]
         console.log(@record(i))
 
+    @fromRecords: (records, joinAll=true) ->
+      allkeys = _.uniq(_.flatten(_.map(records, (rec) -> _.keys(rec))))
+      console.log(allkeys)
+      vars = {}
+      for key in allkeys
+        vars[key] = []
+      console.log(vars)
+      for rec in records
+        for key in allkeys
+          vars[key].push(rec[key] or null)
+      new DataTable(vars)
+
+
+
     @build: (vars = {}) ->
       Object.seal(new DataTable(vars))
 
@@ -315,7 +329,7 @@ exports.Event =
       console.log("rendering event")
 
       ## render stimulus
-      @stimulus.render(context)
+      @stimulus.render(context, context.contentLayer)
 
       context.draw()
 
@@ -323,22 +337,30 @@ exports.Event =
       ## activate response
 
       @response.activate(context).then((ret) =>
-        ## 
+        ##
         @stimulus.stop()
         ret)
 
 
 exports.Trial =
   class Trial
-    constructor: (@events = []) ->
+    constructor: (@events = [], @meta={}, @background) ->
 
     numEvents: ->
       @events.length
 
+    push: (event) -> @events.push(event)
+
     start: (context) ->
-      farray = _.map(@events, (ev) =>
-        (=>
-          ev.start(context)))
+      console.log("starting trial")
+      context.clearBackground()
+
+      if @background
+        context.setBackground(@background)
+        context.drawBackground()
+
+
+      farray = _.map(@events, (ev) => (=> ev.start(context)))
       result = Q.resolve(0)
 
       for fun in farray
@@ -347,10 +369,40 @@ exports.Trial =
 
 exports.ExperimentContext =
   class ExperimentContext
-    @block = 0
-    @trial = 0
+    eventLog: []
 
-    clearBase: ->
+    trialNumber: 0
+
+    currentTrial: {}
+
+    logEvent: (key, value) ->
+      console.log("logging event")
+      record = _.clone(@currentTrial.meta)
+      record[key] = value
+      @eventLog.push(record)
+      console.log(@eventLog)
+
+
+
+    start: (trialList) ->
+      funList = _.map(trialList, (trial) => (=>
+        @trialNumber += 1
+        @currentTrial = trial
+        trial.start(this)))
+
+
+
+      result = Q.resolve(0)
+
+      for fun in funList
+        console.log("building trial list")
+        result = result.then(fun)
+      #result.done()
+
+
+    clearContent: ->
+
+    clearBackground: ->
 
     keydownStream: -> #Bacon.fromEventTarget(window, "keydown")
 
@@ -389,13 +441,9 @@ exports.Experiment =
     buildEvent: (event) ->
       responseType = _.keys(event)[0]
       params = _.values(event)[0]
-      console.log("response type ", responseType)
-      console.log("params ", params)
       @stimFactory.makeResponse(responseType, params)
 
-    buildTrial: (eventSpec) ->
-      console.log("event spec", eventSpec)
-      console.log("keys ", _.keys(eventSpec))
+    buildTrial: (eventSpec, record) ->
 
       events = for key, value of eventSpec
         stimSpec = _.omit(value, "Next")
@@ -405,7 +453,7 @@ exports.Experiment =
         response = @buildEvent(responseSpec.Next)
         @stimFactory.makeEvent(stim, response)
 
-      new Trial(events)
+      new Trial(events, record)
 
     start: (context) ->
       #numBlocks = @design.blocks
@@ -413,16 +461,12 @@ exports.Experiment =
       console.log(trials.nrow())
       trialList = for i in [0 ... trials.nrow()]
         record = trials.record(i)
+        record.$trialNumber = i
         trialSpec = @trialGenerator(record)
-        @buildTrial(trialSpec)
+        @buildTrial(trialSpec, record)
 
-      funList = _.map(trialList, (trial) => (=> trial.start(context)))
+      context.start(trialList)
 
-      result = Q.resolve(0)
-
-      for fun in funList
-        result = result.then(fun)
-      result
 
 
 # ## ConditionalSampler
@@ -668,6 +712,9 @@ exports.ExpDesign =
       console.log(@crossedDesign)
 
 
+dt = new DataTable.fromRecords([{a:1, b:2}, {c:1, d:2, a:88}])
+dt = new DataTable.fromRecords([{a:1, b:2}])
+dt.show()
 #dt = new DataTable({x: [1,2,3,4,5,2,1], y: ['a', 'b', 'b', 'c', 'd', 'e', 'a']})
 #res = dt.select({y: 'b'})
 #console.log(res)

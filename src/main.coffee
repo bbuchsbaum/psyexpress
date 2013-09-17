@@ -1,5 +1,5 @@
 Exp = require("./Elements")
-Psy = require("./Psytools")
+Psy = require("./PsyCloud")
 
 for key, value of Psy
   exports[key] = value

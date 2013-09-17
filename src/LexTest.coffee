@@ -1,4 +1,4 @@
-Psy = require("./Psytools")
+Psy = require("./PsyCloud")
 Exp = require("./Elements")
 
 
@@ -56,7 +56,7 @@ Exp = require("./Elements")
       2:
         # Clear: false ... this would not clear previous element
         Text:
-          x:0, y:0, content: trial.words
+          content: trial.words, position: "center"
         Next:
           KeyPressed:
             keys: ['a', 'b']

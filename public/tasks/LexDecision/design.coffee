@@ -53,7 +53,7 @@
             duration: 2000
       2:
         Text:
-          x:0, y:0, content: trial.words
+          content: trial.words, position: "center"
         Next:
           KeyPressed:
             keys: ['a', 'b']

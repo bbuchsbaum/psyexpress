@@ -4,7 +4,7 @@
 
   Exp = require("./Elements");
 
-  Psy = require("./Psytools");
+  Psy = require("./PsyCloud");
 
   for (key in Psy) {
     value = Psy[key];

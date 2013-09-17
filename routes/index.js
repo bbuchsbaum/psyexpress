@@ -6,7 +6,7 @@
 
 exports.index = function(req, res){
     res.render('index', {
-        scripts: ['/javascripts/hello.js', '/javascripts/PsyTools.js'],
+        scripts: ['/javascripts/hello.js', '/javascripts/PsyCloud.js'],
         title: 'Express'
     });
 };

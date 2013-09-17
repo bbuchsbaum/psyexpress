@@ -14,11 +14,15 @@
 
 @SpaceKey =  new Psy.SpaceKeyResponse()
 
-
 @SpaceOrTimeout5000 = new Psy.FirstResponse([ new Psy.Timeout({duration: 5000} ),SpaceKey])
 
-@makeTrial = (stim, resp) ->
-  new Psy.Trial([new Psy.Event(stim, resp), ClearEvent])
+@makeTrial = (stim, resp, bg=new Psy.Background([], fill= "orange")) ->
+  console.log("bg = ", bg)
+  new Psy.Trial([new Psy.Event(stim, resp), ClearEvent], bg)
+
+@wrapEvents = (events, bg=new Psy.Background([], fill= "white")) ->
+  new Psy.Trial(events.concat(ClearEvent), bg)
+
 
 @testSet =
   FixationCross:
@@ -77,6 +81,11 @@
       [ new Psy.Circle({x: 100, y: 150, radius:25 }),
         new Psy.Circle({x: 250, y: 150, radius:45 }),
         new Psy.Circle({x: 400, y: 150, radius:65 })]), SpaceKey)
+    "Colored Squares": makeTrial(new Psy.Group(
+      [ new Psy.Rectangle({x: 100, y: 50, width: 50, height: 50, fill: "red" }),
+        new Psy.Rectangle({x: 250, y: 500, width: 50, height: 50, fill: "orange" }),
+        new Psy.Rectangle({x: 200, y: 300, width: 50, height: 50, fill: "cyan" }),
+        new Psy.Rectangle({x: 65,  y: 250, width: 50, height: 50, fill: "pink" })]), SpaceKey)
 
   Sequence:
     "Count to Three": makeTrial(new Psy.Sequence(
@@ -93,6 +102,16 @@
       for i in [50..0]
         new Psy.Text({content: i, position: "center", fontSize: 80})
       [80]), SpaceKey)
+
+  Background:
+    "Background fill": wrapEvents([
+      new Psy.Event(new Psy.Text({content: "Hello,"}), Timeout1000),
+      new Psy.Event(new Psy.Text({content: "How"}), Timeout1000),
+      new Psy.Event(new Psy.Text({content: "are"}), Timeout1000),
+      new Psy.Event(new Psy.Text({content: "you"}), Timeout1000),
+      new Psy.Event(new Psy.Text({content: "Today"}), SpaceKey)],
+      new Psy.Background([new Psy.Text({content: "I am a background stimulus", position: "bottom-center"})], fill= "red"))
+
 
 
 
