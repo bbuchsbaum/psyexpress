@@ -4,8 +4,6 @@ _ = require('lodash')
 Q = require("q")
 
 
-
-
 if window?.performance.now
   console.log("Using high performance timer")
   getTimestamp = -> window.performance.now()
@@ -30,9 +28,6 @@ doTimer = (length, resolution, oninstance, oncomplete) ->
   count = 0
   start = getTimeStamp()
   window.setTimeout instance, speed
-
-
-
 
 
 
