@@ -17,11 +17,10 @@
 @SpaceOrTimeout5000 = new Psy.FirstResponse([ new Psy.Timeout({duration: 5000} ),SpaceKey])
 
 @makeTrial = (stim, resp, bg=new Psy.Background([], fill= "orange")) ->
-  console.log("bg = ", bg)
-  new Psy.Trial([new Psy.Event(stim, resp), ClearEvent], bg)
+  new Psy.Trial([new Psy.Event(stim, resp), ClearEvent], {}, bg)
 
 @wrapEvents = (events, bg=new Psy.Background([], fill= "white")) ->
-  new Psy.Trial(events.concat(ClearEvent), bg)
+  new Psy.Trial(events.concat(ClearEvent), {}, bg)
 
 
 @testSet =
@@ -110,7 +109,7 @@
       new Psy.Event(new Psy.Text({content: "are"}), Timeout1000),
       new Psy.Event(new Psy.Text({content: "you"}), Timeout1000),
       new Psy.Event(new Psy.Text({content: "Today"}), SpaceKey)],
-      new Psy.Background([new Psy.Text({content: "I am a background stimulus", position: "bottom-center"})], fill= "red"))
+      new Psy.Background([new Psy.Text({content: "I am a background stimulus", position: "bottom-center"})],  "red"))
 
 
 

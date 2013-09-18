@@ -4134,7 +4134,7 @@
         __extends(Background, _super);
         function Background(stims, fill) {
           this.stims = stims != null ? stims : [];
-          this.fill = fill != null ? fill : 'white';
+          this.fill = fill != null ? fill : 'red';
           this.background = new Kinetic.Rect({
             x: 0,
             y: 0,
@@ -4205,8 +4205,9 @@
                 if (_this.clear) {
                   context.clearContent();
                 }
-                stim.render(context);
-                return layer.draw();
+                console.log('drawing stim');
+                stim.render(context, layer);
+                return context.draw();
               }
             });
           });

@@ -243,7 +243,7 @@ class Group extends Stimulus
 exports.Background =
 class Background extends Stimulus
 
-  constructor:  (@stims=[], @fill= "white") ->
+  constructor:  (@stims=[], @fill= "red") ->
     @background = new Kinetic.Rect({x:0, y:0, width:0, height:0, fill: @fill})
 
   render: (context, layer) ->
@@ -287,8 +287,9 @@ class Sequence extends Stimulus
         if not @stopped
           if @clear
             context.clearContent()
-          stim.render(context)
-          layer.draw()))
+          console.log("drawing stim")
+          stim.render(context, layer)
+          context.draw()))
 
   stop: ->
     console.log("stopping Sequence!")
@@ -465,12 +466,11 @@ class KineticContext extends Psy.ExperimentContext
   clearContent: (draw=false) ->
     @contentLayer.removeChildren()
     if draw
-
       @draw()
 
 
-
   draw: ->
+    #@background.render(this, @backgroundLayer)
     @backgroundLayer.draw()
     @contentLayer.draw()
     #@stage.draw()
