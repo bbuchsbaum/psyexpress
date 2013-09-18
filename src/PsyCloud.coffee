@@ -126,6 +126,7 @@ exports.DataTable =
       for key in allkeys
         vars[key] = []
       console.log(vars)
+
       for rec in records
         for key in allkeys
           vars[key].push(rec[key] or null)
