@@ -119,7 +119,7 @@ exports.DataTable =
       for i in [0...@nrow()]
         console.log(@record(i))
 
-    @fromRecords: (records, joinAll=true) ->
+    @fromRecords: (records, union=true) ->
       allkeys = _.uniq(_.flatten(_.map(records, (rec) -> _.keys(rec))))
       console.log(allkeys)
       vars = {}
@@ -136,14 +136,28 @@ exports.DataTable =
     @build: (vars = {}) ->
       Object.seal(new DataTable(vars))
 
-    @rbind: (tab1, tab2) ->
+    @rbind: (tab1, tab2, union=false) ->
       keys1 = _.keys(tab1)
       keys2 = _.keys(tab2)
-      sharedKeys = _.intersection(keys1, keys2)
+      sharedKeys =
+        if union
+          _.union(keys1, keys2)
+        else
+          _.intersection(keys1, keys2)
+
+      console.log("shared keys", sharedKeys)
 
       out = {}
       for name in sharedKeys
-        out[name] = tab1[name].concat(tab2[name])
+        col1 = tab1[name]
+        col2 = tab2[name]
+
+        if not col1
+          col1 = repLen([null], tab1.nrow())
+        if not col2
+          col2 = repLen([null], tab2.nrow())
+
+        out[name] = col1.concat(col2)
 
       new DataTable(out)
 
@@ -712,9 +726,12 @@ exports.ExpDesign =
       console.log(@crossedDesign)
 
 
-dt = new DataTable.fromRecords([{a:1, b:2}, {c:1, d:2, a:88}])
-dt = new DataTable.fromRecords([{a:1, b:2}])
-dt.show()
+dt1 = DataTable.fromRecords([{a:1, b:2}, {c:1, d:2, a:88}])
+dt2 = DataTable.fromRecords([{a:1, b:2}])
+dt2.show()
+
+dt3 = DataTable.rbind(dt1, dt2, true)
+dt3.show()
 #dt = new DataTable({x: [1,2,3,4,5,2,1], y: ['a', 'b', 'b', 'c', 'd', 'e', 'a']})
 #res = dt.select({y: 'b'})
 #console.log(res)

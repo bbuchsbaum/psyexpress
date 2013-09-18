@@ -47,4 +47,6 @@
     return equal(dt.nrow(), 2);
   });
 
+  test('can concatenate two DataTables with different column names', function() {});
+
 }).call(this);

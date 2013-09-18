@@ -14,3 +14,4 @@ test 'can create a DataTable from a two records, with partially overlapping keys
   equal(dt.ncol(), 4)
   equal(dt.nrow(), 2)
 
+test 'can concatenate two DataTables with different column names', ->
