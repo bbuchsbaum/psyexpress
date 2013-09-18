@@ -11,7 +11,10 @@ var express = require('express')
 
 var app = express();
 
+console.log("PLATFORM " + process.platform)
+
 app.configure(function(){
+  
   app.set('port', process.env.PORT);
   app.set('views', __dirname + '/views');
   app.set('view engine', 'jade');
