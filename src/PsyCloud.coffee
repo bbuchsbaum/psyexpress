@@ -598,6 +598,14 @@ exports.CrossedFactorSpec =
       @expanded[block][name][trial] for name in @parentNames
 
 
+exports.TaskSpec =
+  class TaskSpec
+    constructor: (@varSpecs, @crossedSets) ->
+      for set in @crossedSets
+        
+      
+    
+
 # ## ExpDesign
 # A class that represents an experimental design consisting of an array of one or more **blocks**
 # each consisting of a set of one or more **trials**.
