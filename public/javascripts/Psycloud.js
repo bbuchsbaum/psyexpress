@@ -65,7 +65,7 @@
   });
   require.define('/PsyCloud.js', function (module, exports, __dirname, __filename) {
     (function () {
-      var ConditionalSampler, CrossedFactorSpec, DataTable, Event, ExhaustiveSampler, ExpDesign, Experiment, ExperimentContext, Factor, FactorSpec, MockStimFactory, Q, Sampler, StimFactory, Trial, UniformSampler, VarSpec, asArray, dt1, dt2, dt3, rep, repLen, _, __hasProp = {}.hasOwnProperty, __extends = function (child, parent) {
+      var ConditionalSampler, CrossedFactorSpec, DataTable, Event, ExhaustiveSampler, ExpDesign, Experiment, ExperimentContext, Factor, FactorSpec, MockStimFactory, Q, Sampler, StimFactory, TaskSpec, Trial, UniformSampler, VarSpec, asArray, dt1, dt2, dt3, permute, rep, repLen, _, __hasProp = {}.hasOwnProperty, __extends = function (child, parent) {
           for (var key in parent) {
             if (__hasProp.call(parent, key))
               child[key] = parent[key];
@@ -89,6 +89,32 @@
           return _.toArray(value);
         }
       };
+      permute = function (input) {
+        var main, permArr, usedChars;
+        permArr = [];
+        usedChars = [];
+        exports.main = main = function (input) {
+          var ch, i, _i, _ref;
+          for (i = _i = 0, _ref = input.length; 0 <= _ref ? _i < _ref : _i > _ref; i = 0 <= _ref ? ++_i : --_i) {
+            ch = input.splice(i, 1)[0];
+            usedChars.push(ch);
+            if (input.length === 0) {
+              permArr.push(usedChars.slice());
+            }
+            main(input);
+            input.splice(i, 0, ch);
+            usedChars.pop();
+          }
+          return permArr;
+        };
+        return main(input);
+      };
+      exports.permute = permute;
+      console.log(permute([
+        1,
+        2,
+        3
+      ]));
       rep = function (vec, times) {
         var el, i, j, out, _this = this;
         if (!(times instanceof Array)) {
@@ -825,6 +851,9 @@
         VarSpec.nblocks = 1;
         VarSpec.reps = 1;
         VarSpec.expanded = {};
+        VarSpec.prototype.names = function () {
+          return this.name;
+        };
         VarSpec.prototype.ntrials = function () {
           return this.nblocks * this.reps;
         };
@@ -834,9 +863,7 @@
       }();
       exports.FactorSpec = FactorSpec = function (_super) {
         __extends(FactorSpec, _super);
-        function FactorSpec(nblocks, reps, name, levels) {
-          this.nblocks = nblocks;
-          this.reps = reps;
+        function FactorSpec(name, levels) {
           this.name = name;
           this.levels = levels;
           console.log(this.name);
@@ -844,16 +871,12 @@
           this.factorSet = {};
           this.factorSet[this.name] = this.levels;
           this.conditionTable = DataTable.expand(this.factorSet);
-          this.expanded = this.expand(this.nblocks, this.reps);
         }
         FactorSpec.prototype.cross = function (other) {
           return new CrossedFactorSpec(this.nblocks, this.reps, [
             this,
             other
           ]);
-        };
-        FactorSpec.prototype.names = function () {
-          return this.name;
         };
         FactorSpec.prototype.expand = function (nblocks, reps) {
           var blocks, concatBlocks, i, prop, vset, _i, _results;
@@ -871,7 +894,7 @@
           concatBlocks = _.reduce(blocks, function (sum, nex) {
             return DataTable.rbind(sum, nex);
           });
-          concatBlocks.bindcol('BLOCK', rep(function () {
+          concatBlocks.bindcol('$Block', rep(function () {
             _results = [];
             for (var _i = 1; 1 <= nblocks ? _i <= nblocks : _i >= nblocks; 1 <= nblocks ? _i++ : _i--) {
               _results.push(_i);
@@ -880,17 +903,12 @@
           }.apply(this), rep(reps * vset.nrow(), nblocks)));
           return concatBlocks;
         };
-        FactorSpec.prototype.valueAt = function (block, trial) {
-          return this.expanded[block][this.name][trial];
-        };
         return FactorSpec;
       }(VarSpec);
       exports.CrossedFactorSpec = CrossedFactorSpec = function (_super) {
         __extends(CrossedFactorSpec, _super);
-        function CrossedFactorSpec(nblocks, reps, parents) {
+        function CrossedFactorSpec(parents) {
           var fac;
-          this.nblocks = nblocks;
-          this.reps = reps;
           this.parents = parents;
           this.parentNames = function () {
             var _i, _len, _ref, _results;
@@ -917,7 +935,6 @@
           }.call(this);
           this.factorSet = _.zipObject(this.parentNames, this.levels);
           this.conditionTable = DataTable.expand(this.factorSet);
-          this.expanded = this.expand(this.nblocks, this.reps);
         }
         CrossedFactorSpec.prototype.names = function () {
           return this.parentNames;
@@ -935,7 +952,7 @@
           concatBlocks = _.reduce(blocks, function (sum, nex) {
             return DataTable.rbind(sum, nex);
           });
-          concatBlocks.bindcol('BLOCK', rep(function () {
+          concatBlocks.bindcol('$Block', rep(function () {
             _results = [];
             for (var _i = 1; 1 <= nblocks ? _i <= nblocks : _i >= nblocks; 1 <= nblocks ? _i++ : _i--) {
               _results.push(_i);
@@ -944,18 +961,48 @@
           }.apply(this), rep(reps * this.conditionTable.nrow(), nblocks)));
           return concatBlocks;
         };
-        CrossedFactorSpec.prototype.valueAt = function (block, trial) {
-          var name, _i, _len, _ref, _results;
-          _ref = this.parentNames;
-          _results = [];
-          for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-            name = _ref[_i];
-            _results.push(this.expanded[block][name][trial]);
-          }
-          return _results;
-        };
         return CrossedFactorSpec;
       }(VarSpec);
+      exports.TaskSpec = TaskSpec = function () {
+        function TaskSpec(varSpecs, crossedSet) {
+          var i, vname, _i, _j, _k, _len, _len1, _ref, _ref1, _ref2;
+          this.varSpecs = varSpecs;
+          this.crossedSet = crossedSet != null ? crossedSet : [];
+          this.varnames = _.map(this.varSpecs, function (x) {
+            return x.names();
+          });
+          this.varmap = {};
+          for (i = _i = 0, _ref = this.varnames.length; 0 <= _ref ? _i < _ref : _i > _ref; i = 0 <= _ref ? ++_i : --_i) {
+            this.varmap[this.varnames[i]] = this.varSpecs[i];
+          }
+          if (this.crossedSet.length > 0) {
+            _ref1 = this.crossedSet;
+            for (_j = 0, _len = _ref1.length; _j < _len; _j++) {
+              vname = _ref1[_j];
+              this.crossedVars = this.varmap[vname];
+            }
+            this.crossedSpec = new CrossedFactorSpec(this.crossedVars);
+          } else {
+            this.crossedVars = [];
+            this.crossedSpec = {};
+          }
+          this.uncrossedVars = _.difference(this.varnames, this.crossedSet);
+          _ref2 = this.uncrossedVars;
+          for (_k = 0, _len1 = _ref2.length; _k < _len1; _k++) {
+            vname = _ref2[_k];
+            this.uncrossedSpec = this.varmap[vname];
+          }
+          ({
+            expand: function (nblocks, nreps) {
+              var ctable;
+              if (this.crossedVars.length > 0) {
+                return ctable = this.crossedSpec.expand(nblocks, nreps);
+              }
+            }
+          });
+        }
+        return TaskSpec;
+      }();
       exports.ExpDesign = ExpDesign = function () {
         ExpDesign.blocks = 1;
         ExpDesign.validate = function (spec) {
@@ -3815,7 +3862,7 @@
   });
   require.define('/Elements.js', function (module, exports, __dirname, __filename) {
     (function () {
-      var Background, Bacon, Blank, CanvasBorder, Circle, Clear, ClickResponse, FirstResponse, FixationCross, Group, KeypressResponse, KineticContext, KineticStimFactory, MousepressResponse, Picture, Prompt, Psy, Q, Rectangle, Response, Sequence, Sound, SpaceKeyResponse, StartButton, Stimulus, Text, Timeout, TypedResponse, doTimer, getTimestamp, position, x, _, __hasProp = {}.hasOwnProperty, __extends = function (child, parent) {
+      var Arrow, Background, Bacon, Blank, CanvasBorder, Circle, Clear, ClickResponse, FirstResponse, FixationCross, Group, KeypressResponse, KineticContext, KineticStimFactory, MousepressResponse, Picture, Prompt, Psy, Q, Rectangle, Response, Sequence, Sound, SpaceKeyResponse, StartButton, Stimulus, Text, Timeout, TypedResponse, doTimer, getTimestamp, position, x, _, __hasProp = {}.hasOwnProperty, __extends = function (child, parent) {
           for (var key in parent) {
             if (__hasProp.call(parent, key))
               child[key] = parent[key];
@@ -4262,6 +4309,53 @@
           return context.clearContent(true);
         };
         return Clear;
+      }(Stimulus);
+      exports.Arrow = Arrow = function (_super) {
+        __extends(Arrow, _super);
+        function Arrow(spec) {
+          if (spec == null) {
+            spec = {};
+          }
+          this.spec = _.defaults(spec, {
+            x: 100,
+            y: 100,
+            length: 100,
+            angle: 0,
+            thickness: 40,
+            fill: 'red',
+            arrowSize: 50
+          });
+        }
+        Arrow.prototype.render = function (context, layer) {
+          var group, rect, triangle, _this;
+          rect = new Kinetic.Rect({
+            x: this.spec.x,
+            y: this.spec.y,
+            width: this.spec.length,
+            height: this.spec.thickness,
+            fill: this.spec.fill
+          });
+          _this = this;
+          triangle = new Kinetic.Shape({
+            drawFunc: function (cx) {
+              cx.beginPath();
+              cx.moveTo(_this.spec.x + _this.spec.length, _this.spec.y - _this.spec.arrowSize / 2);
+              cx.lineTo(_this.spec.x + _this.spec.length + _this.spec.arrowSize, _this.spec.y + _this.spec.thickness / 2);
+              cx.lineTo(_this.spec.x + _this.spec.length, _this.spec.y + _this.spec.thickness + _this.spec.arrowSize / 2);
+              cx.closePath();
+              return cx.fillStrokeShape(this);
+            },
+            fill: _this.spec.fill
+          });
+          group = new Kinetic.Group;
+          group.add(rect);
+          group.add(triangle);
+          console.log('Width', group.getWidth());
+          group.setOffset((_this.spec.length + _this.spec.arrowSize) / 2, _this.spec.thickness / 2);
+          group.setRotationDeg(_this.spec.angle);
+          return layer.add(group);
+        };
+        return Arrow;
       }(Stimulus);
       exports.Rectangle = Rectangle = function (_super) {
         __extends(Rectangle, _super);

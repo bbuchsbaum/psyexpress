@@ -30,7 +30,7 @@
   this.makeTrial = function(stim, resp, bg) {
     var fill;
     if (bg == null) {
-      bg = new Psy.Background([], fill = "orange");
+      bg = new Psy.Background([], fill = "gray");
     }
     return new Psy.Trial([new Psy.Event(stim, resp), ClearEvent], {}, bg);
   };
@@ -153,6 +153,25 @@
         fill: "green",
         stroke: "blue"
       }), SpaceOrTimeout5000)
+    },
+    Arrow: {
+      "Default Arrow": makeTrial(new Psy.Arrow(), SpaceKey),
+      "Blue Arrow, length 200": makeTrial(new Psy.Arrow({
+        length: 200,
+        fill: "blue"
+      }), SpaceKey),
+      "Rotating Arrow": makeTrial(new Psy.Sequence((function() {
+        var _i, _results;
+        _results = [];
+        for (i = _i = 0; _i <= 50; i = ++_i) {
+          _results.push(new Psy.Arrow({
+            length: 200,
+            fill: "blue",
+            angle: i
+          }));
+        }
+        return _results;
+      })(), [80]), SpaceKey)
     },
     Picture: {
       "Default Picture": makeTrial(new Psy.Picture(), SpaceKey),

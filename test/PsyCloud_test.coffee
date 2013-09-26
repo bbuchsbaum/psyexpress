@@ -22,3 +22,15 @@ test 'can concatenate two DataTables with different column names with rbind, uni
   dt3 = Psy.DataTable.rbind(dt1,dt2,true)
   equal(3, dt3.ncol())
   equal(6, dt3.nrow())
+
+
+module("TaskSpec")
+test 'TaskSpec correctly extracts names of its inputs', ->
+  fspec1 = new Psy.FactorSpec(1,1, "a", [1,2,3])
+  fspec2 = new Psy.FactorSpec(1,1, "b", [5,7,9,21])
+  fspec3 = new Psy.FactorSpec(1,1, "dddd", [5,7,9,21])
+  tspec = new Psy.TaskSpec([fspec1, fspec2, fspec3], [])
+  equal(["a", "b", "dddd"].toString(), tspec.varnames.toString())
+  equal(tspec.varmap["a"].levels.toString(), [1,2,3].toString())
+
+

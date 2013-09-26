@@ -64,4 +64,16 @@
     return equal(6, dt3.nrow());
   });
 
+  module("TaskSpec");
+
+  test('TaskSpec correctly extracts names of its inputs', function() {
+    var fspec1, fspec2, fspec3, tspec;
+    fspec1 = new Psy.FactorSpec(1, 1, "a", [1, 2, 3]);
+    fspec2 = new Psy.FactorSpec(1, 1, "b", [5, 7, 9, 21]);
+    fspec3 = new Psy.FactorSpec(1, 1, "dddd", [5, 7, 9, 21]);
+    tspec = new Psy.TaskSpec([fspec1, fspec2, fspec3], []);
+    equal(["a", "b", "dddd"].toString(), tspec.varnames.toString());
+    return equal(tspec.varmap["a"].levels.toString(), [1, 2, 3].toString());
+  });
+
 }).call(this);

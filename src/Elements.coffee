@@ -315,6 +315,48 @@ class Clear extends Stimulus
   render: (context, layer) ->
     context.clearContent(true)
 
+exports.Arrow =
+class Arrow extends Stimulus
+  constructor: (spec={}) ->
+    @spec = _.defaults(spec, { x: 100, y: 100, length: 100, angle: 0, thickness: 40, fill: "red", arrowSize: 50})
+
+  render: (context, layer) ->
+    rect = new Kinetic.Rect({x: @spec.x, y: @spec.y, width: @spec.length, height: @spec.thickness, fill: @spec.fill})
+
+    _this = @
+
+    triangle = new Kinetic.Shape({
+      drawFunc: (cx) ->
+
+        cx.beginPath()
+
+        cx.moveTo(_this.spec.x + _this.spec.length, _this.spec.y - _this.spec.arrowSize/2.0)
+
+        cx.lineTo(_this.spec.x + _this.spec.length + _this.spec.arrowSize, _this.spec.y + _this.spec.thickness/2.0)
+
+        cx.lineTo(_this.spec.x + _this.spec.length, _this.spec.y + _this.spec.thickness + _this.spec.arrowSize/2.0)
+
+        cx.closePath()
+        cx.fillStrokeShape(this)
+
+      fill: _this.spec.fill
+      #offset: [_this.spec.length/2, _this.spec.thickness/2]
+
+    })
+
+    group = new Kinetic.Group()
+    group.add(rect)
+    group.add(triangle)
+    #group.setPosition(0,0)
+    console.log("Width", group.getWidth())
+    group.setOffset((_this.spec.length + _this.spec.arrowSize)/2.0, _this.spec.thickness/2.0)
+
+    #group.setRotation(_this.spec.angle)
+    group.setRotationDeg(_this.spec.angle)
+    layer.add(group)
+
+
+
 exports.Rectangle =
 class Rectangle extends Stimulus
   constructor: (spec = {}) ->

@@ -11,6 +11,29 @@ asArray = (value) ->
 
 #seqalong = (vec) -> [0 .. vec.length - 1]
 
+permute = (input) ->
+  permArr = []
+  usedChars = []
+
+  exports.main = main = (input) ->
+
+    for i in [0...input.length]
+      ch = input.splice(i, 1)[0]
+      usedChars.push(ch)
+      if (input.length == 0)
+        permArr.push(usedChars.slice())
+
+      main(input)
+      input.splice(i, 0, ch)
+      usedChars.pop()
+
+    permArr
+
+  main(input)
+
+exports.permute = permute
+console.log(permute([1,2,3]))
+
 rep = (vec, times) ->
   if not (times instanceof Array)
     times = [times]
@@ -39,6 +62,7 @@ repLen = (vec, length) ->
 
 exports.rep = rep
 exports.repLen = repLen
+
 #exports.seqalong = seqalong
 
 # ## Sampler
@@ -532,6 +556,8 @@ exports.VarSpec =
     @reps = 1
     @expanded = {}
 
+    names: -> @name
+
     ntrials: ->
       @nblocks * @reps
 
@@ -542,19 +568,18 @@ exports.VarSpec =
 exports.FactorSpec =
   class FactorSpec extends VarSpec
 
-    constructor: (@nblocks, @reps, @name, @levels) ->
+    constructor: (@name, @levels) ->
       console.log(@name)
       console.log(@levels)
       @factorSet = {}
       @factorSet[@name] = @levels
       @conditionTable = DataTable.expand(@factorSet)
-      @expanded = @expand(@nblocks, @reps)
+      #@expanded = @expand(@nblocks, @reps)
 
     cross: (other) ->
       new CrossedFactorSpec(@nblocks, @reps, [this, other])
 
-    names: ->
-      @name
+    #levels: -> @levels
 
     expand: (nblocks, reps) ->
       prop = {}
@@ -565,46 +590,73 @@ exports.FactorSpec =
         vset.replicate(reps)
       concatBlocks = _.reduce(blocks, (sum, nex) ->
         DataTable.rbind(sum, nex))
-      concatBlocks.bindcol("BLOCK", rep([1..nblocks], rep(reps * vset.nrow(), nblocks)))
+      concatBlocks.bindcol("$Block", rep([1..nblocks], rep(reps * vset.nrow(), nblocks)))
       concatBlocks
 
-    valueAt: (block, trial) ->
-      @expanded[block][@name][trial]
+    #valueAt: (block, trial) ->
+    #  @expanded[block][@name][trial]
 
 
 exports.CrossedFactorSpec =
   class CrossedFactorSpec extends VarSpec
-    constructor: (@nblocks, @reps, @parents) ->
+    constructor: ( @parents) ->
       @parentNames = (fac.name for fac in @parents)
       @name = _.reduce(@parentNames, (n, n1) ->
         n + ":" + n1)
       @levels = (fac.levels for fac in @parents)
       @factorSet = _.zipObject(@parentNames, @levels)
       @conditionTable = DataTable.expand(@factorSet)
-      @expanded = @expand(@nblocks, @reps)
+      #@expanded = @expand(@nblocks, @reps)
 
     names: ->
       @parentNames
+
+    #levels: -> @levels
 
     expand: (nblocks, reps) ->
       blocks = for i in [1..nblocks]
         @conditionTable.replicate(reps)
       concatBlocks = _.reduce(blocks, (sum, nex) ->
         DataTable.rbind(sum, nex))
-      concatBlocks.bindcol("BLOCK", rep([1..nblocks], rep(reps * @conditionTable.nrow(), nblocks)))
+      concatBlocks.bindcol("$Block", rep([1..nblocks], rep(reps * @conditionTable.nrow(), nblocks)))
       concatBlocks
 
-    valueAt: (block, trial) ->
-      @expanded[block][name][trial] for name in @parentNames
+    #valueAt: (block, trial) ->
+    #  @expanded[block][name][trial] for name in @parentNames
 
 
 exports.TaskSpec =
   class TaskSpec
-    constructor: (@varSpecs, @crossedSets) ->
-      for set in @crossedSets
-        
-      
-    
+    constructor: (@varSpecs, @crossedSet=[]) ->
+      # extract name of each variable
+      @varnames = _.map(@varSpecs, (x) -> x.names())
+
+      # store names and variables in object
+      @varmap = {}
+      for i in [0...@varnames.length]
+        @varmap[@varnames[i]] = @varSpecs[i]
+
+      if (@crossedSet.length > 0)
+        @crossedVars = @varmap[vname] for vname in @crossedSet
+        @crossedSpec = new CrossedFactorSpec(@crossedVars)
+      else
+        @crossedVars = []
+        @crossedSpec = {}
+
+      @uncrossedVars = _.difference(@varnames, @crossedSet)
+      @uncrossedSpec = @varmap[vname] for vname in @uncrossedVars
+
+      expand: (nblocks, nreps) ->
+        if @crossedVars.length > 0
+          ctable = @crossedSpec.expand(nblocks, nreps)
+
+
+
+
+
+
+
+
 
 # ## ExpDesign
 # A class that represents an experimental design consisting of an array of one or more **blocks**

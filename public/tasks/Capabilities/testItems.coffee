@@ -16,7 +16,7 @@
 
 @SpaceOrTimeout5000 = new Psy.FirstResponse([ new Psy.Timeout({duration: 5000} ),SpaceKey])
 
-@makeTrial = (stim, resp, bg=new Psy.Background([], fill= "orange")) ->
+@makeTrial = (stim, resp, bg=new Psy.Background([], fill= "gray")) ->
   new Psy.Trial([new Psy.Event(stim, resp), ClearEvent], {}, bg)
 
 @wrapEvents = (events, bg=new Psy.Background([], fill= "white")) ->
@@ -67,6 +67,14 @@
     "Default Circle": makeTrial(new Psy.Circle(), SpaceKey)
     "Green Circle Radius 50": makeTrial(new Psy.Circle({radius: 50, fill: "green"}), SpaceOrTimeout5000)
     "Green Circle Blue Stroke": makeTrial(new Psy.Circle({radius: 50, fill: "green", stroke: "blue"}), SpaceOrTimeout5000)
+
+  Arrow:
+    "Default Arrow": makeTrial(new Psy.Arrow(), SpaceKey)
+    "Blue Arrow, length 200": makeTrial(new Psy.Arrow({length: 200, fill: "blue"}), SpaceKey)
+    "Rotating Arrow": makeTrial(new Psy.Sequence(
+      for i in [0..50]
+        new Psy.Arrow({length: 200, fill: "blue", angle: i})
+      [80]), SpaceKey)
 
   Picture:
     "Default Picture": makeTrial(new Psy.Picture(), SpaceKey)
