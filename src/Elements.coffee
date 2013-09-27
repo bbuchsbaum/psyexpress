@@ -321,7 +321,7 @@ class Arrow extends Stimulus
     @spec = _.defaults(spec, { x: 100, y: 100, length: 100, angle: 0, thickness: 40, fill: "red", arrowSize: 50})
 
   render: (context, layer) ->
-    rect = new Kinetic.Rect({x: @spec.x, y: @spec.y, width: @spec.length, height: @spec.thickness, fill: @spec.fill})
+    rect = new Kinetic.Rect({x: 0, y: 0, width: @spec.length, height: @spec.thickness, fill: @spec.fill})
 
     _this = @
 
@@ -330,11 +330,11 @@ class Arrow extends Stimulus
 
         cx.beginPath()
 
-        cx.moveTo(_this.spec.x + _this.spec.length, _this.spec.y - _this.spec.arrowSize/2.0)
+        cx.moveTo(_this.spec.length, - _this.spec.arrowSize/2.0)
 
-        cx.lineTo(_this.spec.x + _this.spec.length + _this.spec.arrowSize, _this.spec.y + _this.spec.thickness/2.0)
+        cx.lineTo(_this.spec.length + _this.spec.arrowSize, _this.spec.thickness/2.0)
 
-        cx.lineTo(_this.spec.x + _this.spec.length, _this.spec.y + _this.spec.thickness + _this.spec.arrowSize/2.0)
+        cx.lineTo(_this.spec.length, _this.spec.thickness + _this.spec.arrowSize/2.0)
 
         cx.closePath()
         cx.fillStrokeShape(this)
@@ -344,15 +344,18 @@ class Arrow extends Stimulus
 
     })
 
-    group = new Kinetic.Group()
+    #group = new Kinetic.Group({x: @spec.x, y: @spec.y, rotationDeg: @spec.angle, offset: [(@spec.length + @spec.arrowSize)/2.0, @spec.thickness/2.0]})
+    group = new Kinetic.Group({x: @spec.x, y: @spec.y, rotationDeg: @spec.angle, offset: [0, @spec.thickness/2.0]})
     group.add(rect)
     group.add(triangle)
     #group.setPosition(0,0)
-    console.log("Width", group.getWidth())
-    group.setOffset((_this.spec.length + _this.spec.arrowSize)/2.0, _this.spec.thickness/2.0)
+    console.log(group.getOffset())
+    #group.setOffset({x: (_this.spec.length + _this.spec.arrowSize)/2.0, y: _this.spec.thickness/2.0})
+
+    console.log(group.getOffset())
 
     #group.setRotation(_this.spec.angle)
-    group.setRotationDeg(_this.spec.angle)
+    #group.setRotationDeg(_this.spec.angle)
     layer.add(group)
 
 

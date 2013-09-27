@@ -72,9 +72,9 @@
     "Default Arrow": makeTrial(new Psy.Arrow(), SpaceKey)
     "Blue Arrow, length 200": makeTrial(new Psy.Arrow({length: 200, fill: "blue"}), SpaceKey)
     "Rotating Arrow": makeTrial(new Psy.Sequence(
-      for i in [0..50]
-        new Psy.Arrow({length: 200, fill: "blue", angle: i})
-      [80]), SpaceKey)
+      for i in [0 .. 360] by 2
+        new Psy.Arrow({x:300, y:300, length: 200, fill: "black", angle: i})
+      [40]), SpaceKey)
 
   Picture:
     "Default Picture": makeTrial(new Psy.Picture(), SpaceKey)

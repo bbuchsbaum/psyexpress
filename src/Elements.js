@@ -572,8 +572,8 @@
     Arrow.prototype.render = function(context, layer) {
       var group, rect, triangle, _this;
       rect = new Kinetic.Rect({
-        x: this.spec.x,
-        y: this.spec.y,
+        x: 0,
+        y: 0,
         width: this.spec.length,
         height: this.spec.thickness,
         fill: this.spec.fill
@@ -582,20 +582,24 @@
       triangle = new Kinetic.Shape({
         drawFunc: function(cx) {
           cx.beginPath();
-          cx.moveTo(_this.spec.x + _this.spec.length, _this.spec.y - _this.spec.arrowSize / 2.0);
-          cx.lineTo(_this.spec.x + _this.spec.length + _this.spec.arrowSize, _this.spec.y + _this.spec.thickness / 2.0);
-          cx.lineTo(_this.spec.x + _this.spec.length, _this.spec.y + _this.spec.thickness + _this.spec.arrowSize / 2.0);
+          cx.moveTo(_this.spec.length, -_this.spec.arrowSize / 2.0);
+          cx.lineTo(_this.spec.length + _this.spec.arrowSize, _this.spec.thickness / 2.0);
+          cx.lineTo(_this.spec.length, _this.spec.thickness + _this.spec.arrowSize / 2.0);
           cx.closePath();
           return cx.fillStrokeShape(this);
         },
         fill: _this.spec.fill
       });
-      group = new Kinetic.Group();
+      group = new Kinetic.Group({
+        x: this.spec.x,
+        y: this.spec.y,
+        rotationDeg: this.spec.angle,
+        offset: [0, this.spec.thickness / 2.0]
+      });
       group.add(rect);
       group.add(triangle);
-      console.log("Width", group.getWidth());
-      group.setOffset((_this.spec.length + _this.spec.arrowSize) / 2.0, _this.spec.thickness / 2.0);
-      group.setRotationDeg(_this.spec.angle);
+      console.log(group.getOffset());
+      console.log(group.getOffset());
       return layer.add(group);
     };
 

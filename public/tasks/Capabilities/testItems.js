@@ -163,15 +163,17 @@
       "Rotating Arrow": makeTrial(new Psy.Sequence((function() {
         var _i, _results;
         _results = [];
-        for (i = _i = 0; _i <= 50; i = ++_i) {
+        for (i = _i = 0; _i <= 360; i = _i += 2) {
           _results.push(new Psy.Arrow({
+            x: 300,
+            y: 300,
             length: 200,
-            fill: "blue",
+            fill: "black",
             angle: i
           }));
         }
         return _results;
-      })(), [80]), SpaceKey)
+      })(), [40]), SpaceKey)
     },
     Picture: {
       "Default Picture": makeTrial(new Psy.Picture(), SpaceKey),
