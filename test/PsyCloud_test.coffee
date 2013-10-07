@@ -34,3 +34,21 @@ test 'TaskSpec correctly extracts names of its inputs', ->
   equal(tspec.varmap["a"].levels.toString(), [1,2,3].toString())
 
 
+
+module("AbsoluteLayout")
+
+test 'AbsoluteLayout correcty convert percentage to fraction', ->
+  layout = new Psy.AbsoluteLayout()
+
+
+  xy = layout.computePosition([1000,1000], ["10%", "90%"])
+  equal(xy[0], .1*1000, "10% of 1000 is " + xy[0])
+  equal(xy[1], .9*1000, "90% of 1000 is " + xy[1])
+
+test 'AbsoluteLayout handles raw pixels', ->
+  layout = new Psy.AbsoluteLayout()
+
+
+  xy = layout.computePosition([1000, 1000], [10, 90])
+  equal(xy[0], 10)
+  equal(xy[1], 90)

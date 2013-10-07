@@ -65,7 +65,7 @@
   });
   require.define('/PsyCloud.js', function (module, exports, __dirname, __filename) {
     (function () {
-      var ConditionalSampler, CrossedFactorSpec, DataTable, Event, ExhaustiveSampler, ExpDesign, Experiment, ExperimentContext, Factor, FactorSpec, MockStimFactory, Q, Sampler, StimFactory, TaskSpec, Trial, UniformSampler, VarSpec, asArray, dt1, dt2, dt3, permute, rep, repLen, _, __hasProp = {}.hasOwnProperty, __extends = function (child, parent) {
+      var CombinatoricSampler, ConditionalSampler, CrossedFactorSpec, DataTable, Event, ExhaustiveSampler, ExpDesign, Experiment, ExperimentContext, Factor, FactorSpec, MockStimFactory, Q, Sampler, StimFactory, TaskSpec, Trial, UniformSampler, VarSpec, asArray, clone, dt1, dt2, dt3, permute, rep, repLen, x1, x2, x3, _, __hasProp = {}.hasOwnProperty, __extends = function (child, parent) {
           for (var key in parent) {
             if (__hasProp.call(parent, key))
               child[key] = parent[key];
@@ -77,9 +77,39 @@
           child.prototype = new ctor;
           child.__super__ = parent.prototype;
           return child;
-        };
+        }, __slice = [].slice;
       _ = require('/../node_modules/lodash/dist/lodash.js', module);
       Q = require('/../node_modules/q/q.js', module);
+      clone = function (obj) {
+        var flags, key, newInstance;
+        if (!(obj != null) || typeof obj !== 'object') {
+          return obj;
+        }
+        if (obj instanceof Date) {
+          return new Date(obj.getTime());
+        }
+        if (obj instanceof RegExp) {
+          flags = '';
+          if (obj.global != null) {
+            flags += 'g';
+          }
+          if (obj.ignoreCase != null) {
+            flags += 'i';
+          }
+          if (obj.multiline != null) {
+            flags += 'm';
+          }
+          if (obj.sticky != null) {
+            flags += 'y';
+          }
+          return new RegExp(obj.source, flags);
+        }
+        newInstance = new obj.constructor;
+        for (key in obj) {
+          newInstance[key] = clone(obj[key]);
+        }
+        return newInstance;
+      };
       asArray = function (value) {
         if (_.isArray(value)) {
           return value;
@@ -109,12 +139,6 @@
         };
         return main(input);
       };
-      exports.permute = permute;
-      console.log(permute([
-        1,
-        2,
-        3
-      ]));
       rep = function (vec, times) {
         var el, i, j, out, _this = this;
         if (!(times instanceof Array)) {
@@ -161,8 +185,15 @@
         }
         return _results;
       };
+      exports.permute = permute;
       exports.rep = rep;
       exports.repLen = repLen;
+      exports.clone = clone;
+      console.log(permute([
+        1,
+        2,
+        3
+      ]));
       exports.Sampler = Sampler = function () {
         function Sampler(items) {
           this.items = items;
@@ -238,6 +269,41 @@
         };
         return UniformSampler;
       }(Sampler);
+      exports.CombinatoricSampler = CombinatoricSampler = function (_super) {
+        __extends(CombinatoricSampler, _super);
+        function CombinatoricSampler() {
+          var samplers;
+          samplers = 1 <= arguments.length ? __slice.call(arguments, 0) : [];
+          this.samplers = samplers;
+        }
+        CombinatoricSampler.prototype.take = function (n) {
+          var i, j, xs, _i, _results;
+          _results = [];
+          for (i = _i = 0; 0 <= n ? _i < n : _i > n; i = 0 <= n ? ++_i : --_i) {
+            xs = function () {
+              var _j, _ref, _results1;
+              _results1 = [];
+              for (j = _j = 0, _ref = this.samplers.length; 0 <= _ref ? _j < _ref : _j > _ref; j = 0 <= _ref ? ++_j : --_j) {
+                _results1.push(this.samplers[j].take(1));
+              }
+              return _results1;
+            }.call(this);
+            _results.push(_.flatten(xs));
+          }
+          return _results;
+        };
+        return CombinatoricSampler;
+      }(Sampler);
+      x1 = new UniformSampler([
+        0,
+        100
+      ]);
+      x2 = new ExhaustiveSampler([
+        'a',
+        'b'
+      ]);
+      x3 = new CombinatoricSampler(x1, x2);
+      console.log('hello: ', x3.take(5));
       exports.Factor = Factor = function (_super) {
         __extends(Factor, _super);
         Factor.asFactor = function (arr) {
@@ -622,6 +688,10 @@
           this.stimulus = stimulus;
           this.response = response;
         }
+        Event.prototype.stop = function () {
+          this.stimulus.stop();
+          return this.response.stop();
+        };
         Event.prototype.start = function (context) {
           var _this = this;
           console.log('starting event', this.stimulus);
@@ -671,6 +741,16 @@
           }
           return result;
         };
+        Trial.prototype.stop = function () {
+          var ev, _i, _len, _ref, _results;
+          _ref = this.events;
+          _results = [];
+          for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+            ev = _ref[_i];
+            _results.push(ev.stop());
+          }
+          return _results;
+        };
         return Trial;
       }();
       exports.ExperimentContext = ExperimentContext = function () {
@@ -678,10 +758,9 @@
         }
         ExperimentContext.prototype.eventLog = [];
         ExperimentContext.prototype.trialNumber = 0;
-        ExperimentContext.prototype.currentTrial = {};
+        ExperimentContext.prototype.currentTrial = new Trial([], {});
         ExperimentContext.prototype.logEvent = function (key, value) {
           var record;
-          console.log('logging event');
           record = _.clone(this.currentTrial.meta);
           record[key] = value;
           this.eventLog.push(record);
@@ -3862,7 +3941,7 @@
   });
   require.define('/Elements.js', function (module, exports, __dirname, __filename) {
     (function () {
-      var Arrow, Background, Bacon, Blank, CanvasBorder, Circle, Clear, ClickResponse, FirstResponse, FixationCross, Group, KeypressResponse, KineticContext, KineticStimFactory, MousepressResponse, Picture, Prompt, Psy, Q, Rectangle, Response, Sequence, Sound, SpaceKeyResponse, StartButton, Stimulus, Text, Timeout, TypedResponse, doTimer, getTimestamp, position, x, _, __hasProp = {}.hasOwnProperty, __extends = function (child, parent) {
+      var AbsoluteLayout, Arrow, Background, Bacon, Blank, CanvasBorder, Circle, Clear, ClickResponse, FirstResponse, FixationCross, GridLayout, GridLines, Group, KeypressResponse, KineticContext, KineticStimFactory, Layout, MousepressResponse, Picture, Prompt, Psy, Q, Rectangle, Response, Sequence, Sound, SpaceKeyResponse, StartButton, Stimulus, Text, TextInput, Timeout, TypedResponse, computeGridCells, convertPercentageToFraction, convertToCoordinate, disableBrowserBack, doTimer, getTimestamp, isPercentage, position, x, _, __hasProp = {}.hasOwnProperty, __extends = function (child, parent) {
           for (var key in parent) {
             if (__hasProp.call(parent, key))
               child[key] = parent[key];
@@ -3895,32 +3974,174 @@
           return new Date().getTime();
         };
       }
-      doTimer = function (length, resolution, oninstance, oncomplete) {
-        var count, instance, speed, start, steps;
+      doTimer = function (length, oncomplete) {
+        var instance, start;
+        start = getTimestamp();
         instance = function () {
-          var diff;
-          if (count++ === steps) {
-            return oncomplete(steps, count);
+          var diff, half;
+          diff = getTimestamp() - start;
+          if (diff >= length) {
+            return oncomplete(diff);
           } else {
-            oninstance(steps, count);
-            diff = getTimeStamp() - start - count * speed;
-            return window.setTimeout(instance, speed - diff);
+            half = Math.max((length - diff) / 2, 1);
+            if (half < 20) {
+              half = 1;
+            }
+            return window.setTimeout(instance, half);
           }
         };
-        steps = length / 100 * (resolution / 10);
-        speed = length / steps;
-        count = 0;
-        start = getTimeStamp();
-        return window.setTimeout(instance, speed);
+        return window.setTimeout(instance, 1);
       };
-      exports.Response = Response = function () {
-        function Response() {
+      this.browserBackDisabled = false;
+      disableBrowserBack = function () {
+        var rx;
+        if (!this.browserBackDisabled) {
+          rx = /INPUT|SELECT|TEXTAREA/i;
+          this.browserBackDisabled = true;
+          return $(document).bind('keydown keypress', function (e) {
+            if (e.which === 8) {
+              if (!rx.test(e.target.tagName) || e.target.disabled || e.target.readOnly) {
+                return e.preventDefault();
+              }
+            }
+          });
         }
-        Response.delay = function (ms, func) {
-          return setTimeout(func, ms);
+      };
+      isPercentage = function (perc) {
+        return _.isString(perc) && perc.slice(-1) === '%';
+      };
+      convertPercentageToFraction = function (perc, dim) {
+        var frac;
+        frac = parseFloat(perc) / 100;
+        frac = Math.min(1, frac);
+        frac = Math.max(0, frac);
+        return frac * dim;
+      };
+      convertToCoordinate = function (val, d) {
+        if (isPercentage(val)) {
+          return val = convertPercentageToFraction(val, d);
+        } else {
+          return Math.min(val, d);
+        }
+      };
+      computeGridCells = function (rows, cols, bounds) {
+        var col, row, _i, _results;
+        _results = [];
+        for (row = _i = 0; 0 <= rows ? _i < rows : _i > rows; row = 0 <= rows ? ++_i : --_i) {
+          _results.push(function () {
+            var _j, _results1;
+            _results1 = [];
+            for (col = _j = 0; 0 <= cols ? _j < cols : _j > cols; col = 0 <= cols ? ++_j : --_j) {
+              _results1.push({
+                x: bounds.x + bounds.width / cols * col,
+                y: bounds.y + bounds.height / rows * row,
+                width: bounds.width / cols,
+                height: bounds.height / rows
+              });
+            }
+            return _results1;
+          }());
+        }
+        return _results;
+      };
+      exports.Layout = Layout = function () {
+        function Layout() {
+        }
+        Layout.prototype.computePosition = function (dim, stim, constraints) {
+        };
+        return Layout;
+      }();
+      exports.AbsoluteLayout = AbsoluteLayout = function (_super) {
+        __extends(AbsoluteLayout, _super);
+        function AbsoluteLayout() {
+          return AbsoluteLayout.__super__.constructor.apply(this, arguments);
+        }
+        AbsoluteLayout.prototype.computePosition = function (dim, constraints) {
+          var x, y;
+          x = convertToCoordinate(constraints[0], dim[0]);
+          y = convertToCoordinate(constraints[1], dim[1]);
+          return [
+            x,
+            y
+          ];
+        };
+        return AbsoluteLayout;
+      }(Layout);
+      exports.GridLayout = GridLayout = function (_super) {
+        __extends(GridLayout, _super);
+        function GridLayout(rows, cols, bounds) {
+          this.rows = rows;
+          this.cols = cols;
+          this.bounds = bounds;
+          this.ncells = this.rows * this.cols;
+          this.cells = this.computeCells();
+        }
+        GridLayout.prototype.computeCells = function () {
+          return computeGridCells(this.rows, this.cols, this.bounds);
+        };
+        GridLayout.prototype.computePosition = function (dim, constraints) {
+          var cell;
+          if (dim[0] !== this.bounds.width && dim[1] !== this.bounds.height) {
+            this.bounds.width = dim[0];
+            this.bounds.height = dim[1];
+            this.cells = this.computeCells();
+          }
+          cell = this.cells[constraints[0]][constraints[1]];
+          return [
+            cell.x + cell.width / 2,
+            cell.y + cell.height / 2
+          ];
+        };
+        return GridLayout;
+      }(Layout);
+      exports.Stimulus = Stimulus = function () {
+        function Stimulus() {
+        }
+        Stimulus.prototype.spec = {};
+        Stimulus.prototype.layout = new AbsoluteLayout;
+        Stimulus.prototype.overlay = false;
+        Stimulus.prototype.stopped = false;
+        Stimulus.prototype.computeCoordinates = function (context, position) {
+          if (position) {
+            console.log(position);
+            return this.layout.computePosition([
+              context.width(),
+              context.height()
+            ], position);
+          } else if (this.spec.x && this.spec.y) {
+            return [
+              this.spec.x,
+              this.spec.y
+            ];
+          } else {
+            return [
+              0,
+              0
+            ];
+          }
+        };
+        Stimulus.prototype.reset = function () {
+          return this.stopped = false;
+        };
+        Stimulus.prototype.render = function (context, layer) {
+        };
+        Stimulus.prototype.stop = function () {
+          return this.stopped = true;
+        };
+        Stimulus.prototype.id = function () {
+          return this.spec.id || _.uniqueId();
+        };
+        return Stimulus;
+      }();
+      exports.Response = Response = function (_super) {
+        __extends(Response, _super);
+        function Response() {
+          return Response.__super__.constructor.apply(this, arguments);
+        }
+        Response.prototype.activate = function (context) {
         };
         return Response;
-      }();
+      }(Stimulus);
       exports.Timeout = Timeout = function (_super) {
         __extends(Timeout, _super);
         function Timeout(spec) {
@@ -3928,10 +4149,19 @@
             spec = {};
           }
           this.spec = _.defaults(spec, { duration: 2e3 });
+          this.oninstance = function (steps, count) {
+            return console.log(steps, count);
+          };
         }
         Timeout.prototype.activate = function (context) {
-          console.log('activating Timeout', this.spec.duration);
-          return Q.delay(this.spec.duration);
+          var deferred, start, _this = this;
+          deferred = Q.defer();
+          start = getTimestamp();
+          console.log('time stamp', start);
+          doTimer(this.spec.duration, function (diff) {
+            return deferred.resolve(diff);
+          });
+          return deferred.promise;
         };
         return Timeout;
       }(Response);
@@ -3947,10 +4177,8 @@
         }
         Prompt.prototype.activate = function (context) {
           var deferred, promise, _this = this;
-          console.log('Prompting: ', this.title);
           deferred = Q.defer();
           promise = Q.delay(this.spec.delay);
-          console.log('got promise');
           promise.then(function (f) {
             var result;
             result = window.prompt(_this.spec.title, _this.spec.defaultValue);
@@ -4047,13 +4275,11 @@
           keyStream.filter(function (event) {
             var char;
             char = String.fromCharCode(event.keyCode);
-            console.log(char);
-            console.log(event.keyCode);
             return _.contains(_this.spec.keys, char);
           }).take(1).onValue(function (filtered) {
             var Acc;
             Acc = _.contains(_this.spec.correct, String.fromCharCode(filtered.keyCode));
-            console.log('Acc', Acc);
+            context.logEvent('KeyPress', getTimestamp());
             context.logEvent('$ACC', Acc);
             return deferred.resolve(event);
           });
@@ -4077,6 +4303,7 @@
             console.log(event.keyCode);
             return event.keyCode === 32;
           }).take(1).onValue(function (event) {
+            context.logEvent('SpaceKey', getTimestamp());
             return deferred.resolve(event);
           });
           return deferred.promise;
@@ -4113,26 +4340,194 @@
           }
           deferred = Q.defer();
           element.on('click', function (ev) {
+            context.logEvent('Click', getTimestamp());
             return deferred.resolve(ev);
           });
           return deferred.promise;
         };
         return ClickResponse;
       }(Response);
-      exports.Stimulus = Stimulus = function () {
-        Stimulus.prototype.spec = {};
-        Stimulus.prototype.overlay = false;
-        function Stimulus() {
+      exports.GridLines = GridLines = function (_super) {
+        __extends(GridLines, _super);
+        function GridLines(spec) {
+          if (spec == null) {
+            spec = {};
+          }
+          this.spec = _.defaults(spec, {
+            x: 0,
+            y: 0,
+            rows: 3,
+            cols: 3,
+            stroke: 'black',
+            strokeWidth: 2
+          });
         }
-        Stimulus.prototype.render = function (context, layer) {
+        GridLines.prototype.render = function (context, layer) {
+          var i, line, x, y, _i, _j, _ref, _ref1, _results;
+          for (i = _i = 0, _ref = this.spec.rows; 0 <= _ref ? _i <= _ref : _i >= _ref; i = 0 <= _ref ? ++_i : --_i) {
+            y = this.spec.y + i * context.height() / this.spec.rows;
+            line = new Kinetic.Line({
+              points: [
+                this.spec.x,
+                y,
+                this.spec.x + context.width(),
+                y
+              ],
+              stroke: this.spec.stroke,
+              strokeWidth: this.spec.strokeWidth,
+              dashArray: this.spec.dashArray
+            });
+            layer.add(line);
+          }
+          _results = [];
+          for (i = _j = 0, _ref1 = this.spec.cols; 0 <= _ref1 ? _j <= _ref1 : _j >= _ref1; i = 0 <= _ref1 ? ++_j : --_j) {
+            x = this.spec.x + i * context.width() / this.spec.cols;
+            line = new Kinetic.Line({
+              points: [
+                x,
+                this.spec.y,
+                x,
+                this.spec.y + context.height()
+              ],
+              stroke: this.spec.stroke,
+              strokeWidth: this.spec.strokeWidth,
+              dashArray: this.spec.dashArray
+            });
+            _results.push(layer.add(line));
+          }
+          return _results;
         };
-        Stimulus.prototype.stop = function () {
+        return GridLines;
+      }(Stimulus);
+      exports.TextInput = TextInput = function (_super) {
+        __extends(TextInput, _super);
+        function TextInput(spec) {
+          if (spec == null) {
+            spec = {};
+          }
+          disableBrowserBack();
+          this.spec = _.defaults(spec, {
+            x: 100,
+            y: 100,
+            width: 200,
+            height: 40,
+            defaultValue: '',
+            fill: '#FAF5E6',
+            stroke: '#0099FF',
+            strokeWidth: 1,
+            content: ''
+          });
+        }
+        TextInput.prototype.getChar = function (e) {
+          if (e.keyCode !== 16) {
+            if (e.keyCode >= 65 && e.keyCode <= 90) {
+              if (e.shiftKey) {
+                return String.fromCharCode(e.keyCode);
+              } else {
+                return String.fromCharCode(e.keyCode + 32);
+              }
+            } else if (e.keyCode >= 48 && e.keyCode <= 57) {
+              return String.fromCharCode(e.keyCode);
+            } else {
+              console.log('key code is', e.keyCode);
+              switch (e.keyCode) {
+              case 186:
+                return ';';
+              case 187:
+                return '=';
+              case 188:
+                return ',';
+              case 189:
+                return '-';
+              default:
+                return '';
+              }
+            }
+          } else {
+            return String.fromCharCode(e.keyCode);
+          }
         };
-        Stimulus.prototype.id = function () {
-          return this.spec.id || -9999;
+        TextInput.prototype.animateCursor = function (layer, cursor) {
+          var flashTime, _this = this;
+          flashTime = 0;
+          return new Kinetic.Animation(function (frame) {
+            if (frame.time > flashTime + 500) {
+              flashTime = frame.time;
+              if (cursor.getOpacity() === 1) {
+                cursor.setOpacity(0);
+              } else {
+                cursor.setOpacity(1);
+              }
+              return layer.draw();
+            }
+          }, layer);
         };
-        return Stimulus;
-      }();
+        TextInput.prototype.render = function (context, layer) {
+          var cursor, cursorBlink, enterPressed, fsize, group, keyStream, text, textContent, textRect, _this = this;
+          textRect = new Kinetic.Rect({
+            x: this.spec.x,
+            y: this.spec.y,
+            width: this.spec.width,
+            height: this.spec.height,
+            fill: this.spec.fill,
+            cornerRadius: 4,
+            lineJoin: 'round',
+            stroke: this.spec.stroke,
+            strokeWidth: this.spec.strokeWidth
+          });
+          textContent = this.spec.content;
+          fsize = .85 * this.spec.height;
+          text = new Kinetic.Text({
+            text: this.spec.content,
+            x: this.spec.x + 2,
+            y: this.spec.y - 5,
+            height: this.spec.height,
+            fontSize: fsize,
+            fill: 'black',
+            padding: 10,
+            align: 'left'
+          });
+          cursor = new Kinetic.Rect({
+            x: text.getX() + text.getWidth() - 7,
+            y: this.spec.y + 5,
+            width: 1.5,
+            height: text.getHeight() - 10,
+            fill: 'black'
+          });
+          enterPressed = false;
+          keyStream = context.keydownStream();
+          keyStream.takeWhile(function (x) {
+            return enterPressed === false && !_this.stopped;
+          }).onValue(function (event) {
+            var char;
+            if (event.keyCode === 13) {
+              return enterPressed = true;
+            } else if (event.keyCode === 8) {
+              console.log('delete key');
+              textContent = textContent.slice(0, -1);
+              text.setText(textContent);
+              cursor.setX(text.getX() + text.getWidth() - 7);
+              return layer.draw();
+            } else if (text.getWidth() > textRect.getWidth()) {
+            } else {
+              char = _this.getChar(event);
+              console.log('char is', char);
+              textContent += char;
+              text.setText(textContent);
+              cursor.setX(text.getX() + text.getWidth() - 7);
+              return layer.draw();
+            }
+          });
+          cursorBlink = this.animateCursor(layer, cursor);
+          cursorBlink.start();
+          group = new Kinetic.Group({});
+          group.add(textRect);
+          group.add(cursor);
+          group.add(text);
+          return layer.add(group);
+        };
+        return TextInput;
+      }(Stimulus);
       exports.Sound = Sound = function () {
         function Sound(url) {
           this.url = url;
@@ -4175,9 +4570,18 @@
       }(Stimulus);
       exports.Group = Group = function (_super) {
         __extends(Group, _super);
-        function Group(stims) {
+        function Group(stims, layout) {
+          var stim, _i, _len, _ref;
           this.stims = stims;
           this.overlay = true;
+          if (layout) {
+            this.layout = layout;
+            _ref = this.stims;
+            for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+              stim = _ref[_i];
+              stim.layout = layout;
+            }
+          }
         }
         Group.prototype.render = function (context, layer) {
           var stim, _i, _len, _ref, _results;
@@ -4195,18 +4599,11 @@
         __extends(Background, _super);
         function Background(stims, fill) {
           this.stims = stims != null ? stims : [];
-          this.fill = fill != null ? fill : 'red';
-          this.background = new Kinetic.Rect({
-            x: 0,
-            y: 0,
-            width: 0,
-            height: 0,
-            fill: this.fill
-          });
+          this.fill = fill != null ? fill : 'white';
         }
         Background.prototype.render = function (context, layer) {
-          var stim, _i, _len, _ref, _results;
-          this.background = new Kinetic.Rect({
+          var background, stim, _i, _len, _ref, _results;
+          background = new Kinetic.Rect({
             x: 0,
             y: 0,
             width: context.width(),
@@ -4214,13 +4611,11 @@
             name: 'background',
             fill: this.fill
           });
-          console.log('rendering background');
-          layer.add(this.background);
+          layer.add(background);
           _ref = this.stims;
           _results = [];
           for (_i = 0, _len = _ref.length; _i < _len; _i++) {
             stim = _ref[_i];
-            console.log('rendering stim background');
             _results.push(stim.render(context, layer));
           }
           return _results;
@@ -4230,11 +4625,12 @@
       exports.Sequence = Sequence = function (_super) {
         __extends(Sequence, _super);
         Sequence.prototype.stopped = false;
-        function Sequence(stims, soa, clear) {
+        function Sequence(stims, soa, clear, times) {
           var i;
           this.stims = stims;
           this.soa = soa;
           this.clear = clear != null ? clear : true;
+          this.times = times != null ? times : 1;
           if (this.soa.length !== this.stims.length) {
             this.soa = Psy.repLen(this.soa, this.stims.length);
           }
@@ -4249,9 +4645,10 @@
             return _results;
           }.call(this);
         }
-        Sequence.prototype.render = function (context, layer) {
-          var _i, _ref, _results, _this = this;
-          return _.forEach(function () {
+        Sequence.prototype.genseq = function (context, layer) {
+          var deferred, _i, _ref, _results, _this = this;
+          deferred = Q.defer();
+          _.forEach(function () {
             _results = [];
             for (var _i = 0, _ref = this.stims.length; 0 <= _ref ? _i < _ref : _i > _ref; 0 <= _ref ? _i++ : _i--) {
               _results.push(_i);
@@ -4259,6 +4656,7 @@
             return _results;
           }.apply(this), function (i) {
             var ev, stim;
+            console.log('genseq', i);
             ev = new Timeout({ duration: _this.onsets[i] });
             stim = _this.stims[i];
             return ev.activate(context).then(function () {
@@ -4266,15 +4664,28 @@
                 if (_this.clear) {
                   context.clearContent();
                 }
-                console.log('drawing stim');
                 stim.render(context, layer);
-                return context.draw();
+                context.draw();
+              }
+              if (i === _this.stims.length - 1) {
+                console.log('resolving promise', i);
+                return deferred.resolve(1);
               }
             });
           });
+          return deferred.promise;
+        };
+        Sequence.prototype.render = function (context, layer) {
+          var i, result, _i, _ref, _this = this;
+          result = Q.resolve(0);
+          for (i = _i = 0, _ref = this.times; 0 <= _ref ? _i < _ref : _i > _ref; i = 0 <= _ref ? ++_i : --_i) {
+            result = result.then(function () {
+              return _this.genseq(context, layer);
+            });
+          }
+          return result;
         };
         Sequence.prototype.stop = function () {
-          console.log('stopping Sequence!');
           return this.stopped = true;
         };
         return Sequence;
@@ -4333,7 +4744,10 @@
             y: 0,
             width: this.spec.length,
             height: this.spec.thickness,
-            fill: this.spec.fill
+            fill: this.spec.fill,
+            stroke: this.spec.stroke,
+            strokeWidth: this.spec.strokeWidth,
+            opacity: this.spec.opacity
           });
           _this = this;
           triangle = new Kinetic.Shape({
@@ -4345,7 +4759,10 @@
               cx.closePath();
               return cx.fillStrokeShape(this);
             },
-            fill: _this.spec.fill
+            fill: _this.spec.fill,
+            stroke: this.spec.stroke,
+            strokeWidth: this.spec.strokeWidth,
+            opacity: this.spec.opacity
           });
           group = new Kinetic.Group({
             x: this.spec.x,
@@ -4358,8 +4775,6 @@
           });
           group.add(rect);
           group.add(triangle);
-          console.log(group.getOffset());
-          console.log(group.getOffset());
           return layer.add(group);
         };
         return Arrow;
@@ -4380,12 +4795,16 @@
           this.spec = _.omit(this.spec, function (value, key) {
             return !value;
           });
+          if (this.spec.layout) {
+            this.layout = this.spec.layout;
+          }
         }
         Rectangle.prototype.render = function (context, layer) {
-          var rect;
+          var coords, rect;
+          coords = this.computeCoordinates(context, this.spec.position);
           rect = new Kinetic.Rect({
-            x: this.spec.x,
-            y: this.spec.y,
+            x: coords[0],
+            y: coords[1],
             width: this.spec.width,
             height: this.spec.height,
             fill: this.spec.fill,
@@ -4406,7 +4825,8 @@
             x: 100,
             y: 100,
             radius: 50,
-            fill: 'red'
+            fill: 'red',
+            opacity: 1
           });
         }
         Circle.prototype.render = function (context, layer) {
@@ -4417,7 +4837,8 @@
             radius: this.spec.radius,
             fill: this.spec.fill,
             stroke: this.spec.stroke,
-            strokeWidth: this.spec.strokeWidth
+            strokeWidth: this.spec.strokeWidth,
+            opacity: this.spec.opacity
           });
           return layer.add(circ);
         };

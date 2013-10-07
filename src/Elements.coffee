@@ -15,25 +15,143 @@ else
   getTimestamp = -> new Date().getTime()
 
 
-doTimer = (length, resolution, oninstance, oncomplete) ->
+doTimer = (length, oncomplete) ->
+  start = getTimestamp()
   instance = ->
-    if count++ is steps
-      oncomplete steps, count
+    diff = (getTimestamp() - start)
+    if (diff >= length)
+      oncomplete(diff)
     else
-      oninstance steps, count
-      diff = (getTimeStamp() - start) - (count * speed)
-      window.setTimeout instance, (speed - diff)
-  steps = (length / 100) * (resolution / 10)
-  speed = length / steps
-  count = 0
-  start = getTimeStamp()
-  window.setTimeout instance, speed
+      half = Math.max((length - diff)/2,1)
+      if half < 20
+        half = 1
+      window.setTimeout instance, half
 
+  window.setTimeout instance, 1
+
+
+@browserBackDisabled = false
+
+disableBrowserBack = ->
+  if not @browserBackDisabled
+    rx = /INPUT|SELECT|TEXTAREA/i
+    @browserBackDisabled = true
+    $(document).bind("keydown keypress", (e) ->
+      if e.which is 8
+      #alert("intercepting delete?")
+        if !rx.test(e.target.tagName) or e.target.disabled or e.target.readOnly
+          e.preventDefault())
+
+
+
+
+#doTimer = (length, resolution, oninstance, oncomplete) ->
+#  instance = ->
+#    if count++ is steps
+#      oncomplete steps, count
+#    else
+#      oninstance steps, count
+#      diff = (getTimestamp() - start) - (count * speed)
+#      window.setTimeout instance, (speed - diff)
+#  steps = (length / 100) * (resolution / 10)
+#  speed = length / steps
+#  count = 0
+#  start = getTimestamp()
+#  window.setTimeout instance, speed
+
+isPercentage = (perc) -> _.isString(perc) and perc.slice(-1) is "%"
+
+convertPercentageToFraction = (perc, dim) ->
+  frac = parseFloat(perc)/100
+  frac = Math.min(1,frac)
+  frac = Math.max(0,frac)
+  frac * dim
+
+convertToCoordinate = (val, d) ->
+  if isPercentage val
+    val = convertPercentageToFraction(val, d)
+  else
+    Math.min(val, d)
+
+computeGridCells = (rows, cols, bounds) ->
+  for row in [0...rows]
+    for col in [0...cols]
+      {
+        x: bounds.x + bounds.width/cols * col
+        y: bounds.y + bounds.height/rows * row
+        width:  bounds.width/cols
+        height: bounds.height/rows
+      }
+
+
+exports.Layout =
+class Layout
+
+  constructor: ->
+
+  computePosition: (dim, stim, constraints) ->
+
+
+exports.AbsoluteLayout =
+class AbsoluteLayout extends Layout
+
+  computePosition: (dim, constraints) ->
+    x = convertToCoordinate(constraints[0], dim[0])
+    y = convertToCoordinate(constraints[1], dim[1])
+    [x,y]
+
+exports.GridLayout =
+class GridLayout extends Layout
+  constructor: (@rows, @cols, @bounds) ->
+    @ncells = @rows*@cols
+    @cells = @computeCells()
+
+  computeCells: -> computeGridCells(@rows, @cols, @bounds)
+
+  #cellPosition: (dim, constraints) ->
+
+  computePosition: (dim, constraints) ->
+    if dim[0] != @bounds.width and dim[1] != @bounds.height
+      @bounds.width = dim[0]
+      @bounds.height = dim[1]
+      @cells = @computeCells()
+    cell = @cells[constraints[0]][constraints[1]]
+    [cell.x + cell.width/2, cell.y + cell.height/2]
+
+
+
+exports.Stimulus =
+class Stimulus
+
+  spec: {}
+
+  layout: new AbsoluteLayout()
+
+  overlay: false
+
+  stopped: false
+
+  computeCoordinates: (context, position) ->
+    if position
+      console.log(position)
+      @layout.computePosition([context.width(), context.height()], position)
+    else if @spec.x and @spec.y
+      [@spec.x, @spec.y]
+    else [0,0]
+
+  reset: -> @stopped = false
+
+  render: (context, layer) ->
+
+  stop: -> @stopped = true
+
+  id: -> @spec.id or _.uniqueId()
 
 
 exports.Response =
-class Response
-  @delay = (ms, func) -> setTimeout func, ms
+class Response extends Stimulus
+
+  activate: (context) ->
 
 
 exports.Timeout =
@@ -42,9 +160,22 @@ class Timeout extends Response
   constructor: (spec = {}) ->
     @spec = _.defaults(spec, { duration: 2000 } )
 
+    @oninstance = (steps, count) -> console.log(steps, count)
+
   activate: (context) ->
-    console.log("activating Timeout", @spec.duration)
-    Q.delay(@spec.duration)
+    deferred = Q.defer()
+    start = getTimestamp()
+    console.log("time stamp", start)
+    #doTimer(@spec.duration, 20, @oninstance, (steps, count) =>
+    #  diff = getTimestamp() - start
+    #  console.log("diff", diff)
+    #  console.log("requested", @spec.duration)
+    #  deferred.resolve(diff))
+
+    doTimer(@spec.duration, (diff) => deferred.resolve(diff))
+    deferred.promise
+
+
 
 exports.Prompt =
 class Prompt extends Response
@@ -52,15 +183,14 @@ class Prompt extends Response
     @spec = _.defaults(@spec, { title: "", delay: 0, defaultValue: "" })
 
   activate: (context) ->
-    console.log("Prompting: ", @title)
     deferred = Q.defer()
-    #if @delay > 0
     promise = Q.delay(@spec.delay)
-    console.log("got promise")
     promise.then((f) =>
       result = window.prompt(@spec.title, @spec.defaultValue)
       deferred.resolve(result))
     deferred.promise
+
+
 
 exports.TypedResponse =
 class TypedResponse
@@ -124,11 +254,9 @@ class KeypressResponse extends Response
     keyStream = context.keypressStream()
     keyStream.filter((event) =>
       char = String.fromCharCode(event.keyCode)
-      console.log(char)
-      console.log(event.keyCode)
       _.contains(@spec.keys, char)).take(1).onValue((filtered) =>
                                 Acc = _.contains(@spec.correct, String.fromCharCode(filtered.keyCode))
-                                console.log("Acc", Acc)
+                                context.logEvent("KeyPress", getTimestamp())
                                 context.logEvent("$ACC", Acc)
 
                                 deferred.resolve(event))
@@ -147,7 +275,9 @@ class SpaceKeyResponse extends Response
       char = String.fromCharCode(event.keyCode)
       console.log(char)
       console.log(event.keyCode)
-      event.keyCode == 32).take(1).onValue((event) => deferred.resolve(event))
+      event.keyCode == 32).take(1).onValue((event) =>
+        context.logEvent("SpaceKey", getTimestamp())
+        deferred.resolve(event))
 
     deferred.promise
 
@@ -157,7 +287,6 @@ class FirstResponse extends Response
 
   activate: (context) ->
     deferred = Q.defer()
-
     promises = _.map(@responses, (resp) => resp.activate(context).then(=> deferred.resolve(resp)))
     deferred.promise
 
@@ -173,24 +302,136 @@ class ClickResponse extends Response
 
     deferred = Q.defer()
     element.on "click", (ev) =>
+      context.logEvent("Click", getTimestamp())
       deferred.resolve(ev)
 
     deferred.promise
 
 
-exports.Stimulus =
-class Stimulus
-  spec: { }
 
-  overlay: false
+exports.GridLines =
+class GridLines extends Stimulus
+  constructor: (spec = {}) ->
+    @spec = _.defaults(spec, { x: 0, y: 0, rows: 3, cols: 3, stroke: "black", strokeWidth: 2})
 
-  constructor: ->
+
+  render: (context, layer) ->
+    for i in [0..@spec.rows]
+      y = @spec.y + (i * context.height()/@spec.rows)
+      line = new Kinetic.Line({
+        points: [@spec.x, y, @spec.x + context.width(), y]
+        stroke: @spec.stroke
+        strokeWidth: @spec.strokeWidth
+        dashArray: @spec.dashArray
+      })
+
+      layer.add(line)
+
+    for i in [0..@spec.cols]
+      x = @spec.x + (i * context.width()/@spec.cols)
+      line = new Kinetic.Line({
+        points: [x, @spec.y, x, @spec.y + context.height()]
+        stroke: @spec.stroke
+        strokeWidth: @spec.strokeWidth
+        dashArray: @spec.dashArray
+      })
+
+      layer.add(line)
+
+
+
+
+exports.TextInput =
+class TextInput extends Stimulus
+  constructor: (spec = {}) ->
+    disableBrowserBack()
+    @spec = _.defaults(spec, { x: 100, y: 100, width: 200, height: 40, defaultValue: "", fill: "#FAF5E6", stroke: "#0099FF", strokeWidth: 1, content: "" })
+
+
+  getChar: (e) ->
+    # key is not shift
+    if e.keyCode!=16
+      # key is a letter
+      if e.keyCode >= 65 && e.keyCode <= 90
+        if e.shiftKey
+          String.fromCharCode(e.keyCode)
+        else
+          String.fromCharCode(e.keyCode + 32)
+      else if e.keyCode >= 48 && e.keyCode <=57
+        String.fromCharCode(e.keyCode)
+      else
+        console.log("key code is",e.keyCode)
+        switch e.keyCode
+          when 186 then ";"
+          when 187 then "="
+          when 188 then ","
+          when 189 then "-"
+          else ""
+    else
+      String.fromCharCode(e.keyCode)
+
+  animateCursor: (layer, cursor) ->
+    flashTime = 0
+    new Kinetic.Animation((frame) =>
+      if frame.time > (flashTime + 500)
+        flashTime = frame.time
+        if cursor.getOpacity() == 1
+          cursor.setOpacity(0)
+        else
+          cursor.setOpacity(1)
+        layer.draw()
+    , layer)
+
+
+
 
   render: (context, layer) ->
 
-  stop: ->
+    textRect = new Kinetic.Rect({x: @spec.x, y: @spec.y, width: @spec.width, height: @spec.height, fill: @spec.fill, cornerRadius: 4, lineJoin: "round", stroke: @spec.stroke, strokeWidth: @spec.strokeWidth})
+    textContent = @spec.content
 
-  id: -> @spec.id or -9999
+
+    fsize =  .85 * @spec.height
+
+    text = new Kinetic.Text({text: @spec.content, x: @spec.x+2, y: @spec.y - 5, height: @spec.height, fontSize: fsize, fill: "black", padding: 10, align: "left"})
+    cursor = new Kinetic.Rect({x: text.getX() + text.getWidth() - 7, y: @spec.y + 5, width: 1.5, height: text.getHeight() - 10, fill: "black"})
+
+    enterPressed = false
+    keyStream = context.keydownStream()
+    keyStream.takeWhile((x) => enterPressed is false and not @stopped).onValue((event) =>
+
+      if event.keyCode == 13
+        ## Enter Key, Submit Text
+        enterPressed = true
+        #deferred.resolve(freeText)
+      else if event.keyCode == 8
+        ## Backspace
+        console.log("delete key")
+        textContent = textContent.slice(0, - 1)
+        text.setText(textContent)
+        cursor.setX(text.getX() + text.getWidth() - 7)
+        layer.draw()
+      else if text.getWidth() > textRect.getWidth()
+        return
+      else
+        char = @getChar(event)
+        console.log("char is", char)
+        textContent += char
+
+        text.setText(textContent)
+        cursor.setX(text.getX() + text.getWidth() - 7)
+        layer.draw())
+
+    cursorBlink = @animateCursor(layer, cursor)
+    cursorBlink.start()
+
+    group = new Kinetic.Group({})
+
+
+    group.add(textRect)
+    group.add(cursor)
+    group.add(text)
+    layer.add(group)
 
 
 exports.Sound =
@@ -232,8 +473,13 @@ class Picture extends Stimulus
 exports.Group =
 class Group extends Stimulus
 
-  constructor: (@stims) ->
+  constructor: (@stims, layout) ->
     @overlay = true
+    if layout
+      @layout = layout
+      for stim in @stims
+        stim.layout = layout
+
 
   render: (context, layer) ->
     for stim in @stims
@@ -243,11 +489,10 @@ class Group extends Stimulus
 exports.Background =
 class Background extends Stimulus
 
-  constructor:  (@stims=[], @fill= "red") ->
-    @background = new Kinetic.Rect({x:0, y:0, width:0, height:0, fill: @fill})
+  constructor:  (@stims=[], @fill= "white") ->
 
   render: (context, layer) ->
-    @background = new Kinetic.Rect({
+    background = new Kinetic.Rect({
       x: 0,
       y: 0,
       width: context.width(),
@@ -256,20 +501,18 @@ class Background extends Stimulus
       fill: @fill
     })
 
-    console.log("rendering background")
-    layer.add(@background)
+
+    layer.add(background)
 
     for stim in @stims
-      console.log("rendering stim background")
       stim.render(context, layer)
-
 
 
 exports.Sequence =
 class Sequence extends Stimulus
   stopped: false
 
-  constructor: (@stims, @soa, @clear=true) ->
+  constructor: (@stims, @soa, @clear=true, @times=1) ->
     if (@soa.length != @stims.length)
       @soa = Psy.repLen(@soa, @stims.length)
 
@@ -278,8 +521,11 @@ class Sequence extends Stimulus
 
 
 
-  render: (context, layer) ->
+
+  genseq: (context, layer) ->
+    deferred = Q.defer()
     _.forEach([0...@stims.length], (i) =>
+      console.log("genseq", i)
       ev = new Timeout({duration: @onsets[i]})
       stim = @stims[i]
 
@@ -287,13 +533,25 @@ class Sequence extends Stimulus
         if not @stopped
           if @clear
             context.clearContent()
-          console.log("drawing stim")
-          stim.render(context, layer)
-          context.draw()))
 
-  stop: ->
-    console.log("stopping Sequence!")
-    @stopped = true
+          stim.render(context, layer)
+          context.draw()
+        if i == @stims.length-1
+          console.log("resolving promise", i)
+          deferred.resolve(1)
+      )
+    )
+
+    deferred.promise
+
+
+  render: (context, layer) ->
+    result = Q.resolve(0)
+    for i in [0...@times]
+      result = result.then(=> @genseq(context,layer))
+    result
+
+  stop: -> @stopped = true
 
 
 exports.Blank =
@@ -321,7 +579,7 @@ class Arrow extends Stimulus
     @spec = _.defaults(spec, { x: 100, y: 100, length: 100, angle: 0, thickness: 40, fill: "red", arrowSize: 50})
 
   render: (context, layer) ->
-    rect = new Kinetic.Rect({x: 0, y: 0, width: @spec.length, height: @spec.thickness, fill: @spec.fill})
+    rect = new Kinetic.Rect({x: 0, y: 0, width: @spec.length, height: @spec.thickness, fill: @spec.fill, stroke: @spec.stroke, strokeWidth: @spec.strokeWidth, opacity: @spec.opacity})
 
     _this = @
 
@@ -340,22 +598,17 @@ class Arrow extends Stimulus
         cx.fillStrokeShape(this)
 
       fill: _this.spec.fill
-      #offset: [_this.spec.length/2, _this.spec.thickness/2]
+      stroke: @spec.stroke
+      strokeWidth: @spec.strokeWidth
+      opacity: @spec.opacity
 
     })
 
-    #group = new Kinetic.Group({x: @spec.x, y: @spec.y, rotationDeg: @spec.angle, offset: [(@spec.length + @spec.arrowSize)/2.0, @spec.thickness/2.0]})
+
     group = new Kinetic.Group({x: @spec.x, y: @spec.y, rotationDeg: @spec.angle, offset: [0, @spec.thickness/2.0]})
     group.add(rect)
     group.add(triangle)
-    #group.setPosition(0,0)
-    console.log(group.getOffset())
-    #group.setOffset({x: (_this.spec.length + _this.spec.arrowSize)/2.0, y: _this.spec.thickness/2.0})
 
-    console.log(group.getOffset())
-
-    #group.setRotation(_this.spec.angle)
-    #group.setRotationDeg(_this.spec.angle)
     layer.add(group)
 
 
@@ -365,24 +618,24 @@ class Rectangle extends Stimulus
   constructor: (spec = {}) ->
     @spec = _.defaults(spec, { x: 0, y: 0, width: 100, height: 100, fill: 'red'})
     @spec = _.omit(@spec, (value, key) -> not value)
-
+    if @spec.layout
+      @layout = @spec.layout
 
   render: (context, layer) ->
-    rect = new Kinetic.Rect({ x: @spec.x, y: @spec.y, width: @spec.width, height: @spec.height, fill: @spec.fill, stroke: @spec.stroke, strokeWidth: @spec.strokeWidth })
+    coords = @computeCoordinates(context, @spec.position)
+    rect = new Kinetic.Rect({ x: coords[0], y: coords[1], width: @spec.width, height: @spec.height, fill: @spec.fill, stroke: @spec.stroke, strokeWidth: @spec.strokeWidth })
     layer.add(rect)
 
 
 exports.Circle =
 class Circle extends Stimulus
     constructor: (spec = {}) ->
-      @spec = _.defaults(spec, { x: 100, y: 100, radius: 50, fill: 'red'})
+      @spec = _.defaults(spec, { x: 100, y: 100, radius: 50, fill: 'red', opacity: 1})
 
     render: (context, layer) ->
-      circ = new Kinetic.Circle({ x: @spec.x, y: @spec.y, radius: @spec.radius, fill: @spec.fill, stroke: @spec.stroke, strokeWidth: @spec.strokeWidth })
+      circ = new Kinetic.Circle({ x: @spec.x, y: @spec.y, radius: @spec.radius, fill: @spec.fill, stroke: @spec.stroke, strokeWidth: @spec.strokeWidth, opacity: @spec.opacity })
       layer.add(circ)
       #context.contentLayer.draw()
-
-
 
 
 

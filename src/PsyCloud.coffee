@@ -1,6 +1,30 @@
 _ = require('lodash')
 Q = require("q")
 
+
+clone = (obj) ->
+  if not obj? or typeof obj isnt 'object'
+    return obj
+
+  if obj instanceof Date
+    return new Date(obj.getTime())
+
+  if obj instanceof RegExp
+    flags = ''
+    flags += 'g' if obj.global?
+    flags += 'i' if obj.ignoreCase?
+    flags += 'm' if obj.multiline?
+    flags += 'y' if obj.sticky?
+    return new RegExp(obj.source, flags)
+
+  newInstance = new obj.constructor()
+
+  for key of obj
+    newInstance[key] = clone obj[key]
+
+  return newInstance
+
+
 asArray = (value) ->
   if (_.isArray(value))
     value
@@ -31,8 +55,6 @@ permute = (input) ->
 
   main(input)
 
-exports.permute = permute
-console.log(permute([1,2,3]))
 
 rep = (vec, times) ->
   if not (times instanceof Array)
@@ -59,9 +81,13 @@ repLen = (vec, length) ->
   for i in [0...length]
     vec[i % vec.length]
 
+exports.permute = permute
 
 exports.rep = rep
 exports.repLen = repLen
+exports.clone = clone
+
+console.log(permute([1,2,3]))
 
 #exports.seqalong = seqalong
 
@@ -122,6 +148,22 @@ exports.UniformSampler =
       nums = (Math.round(Math.random() * @interval) for i in [1..n])
       nums
 
+exports.CombinatoricSampler =
+class CombinatoricSampler extends Sampler
+
+  constructor: (@samplers...) ->
+
+  take: (n) ->
+    for i in [0...n]
+      xs = for j in [0...@samplers.length]
+        @samplers[j].take(1)
+      _.flatten(xs)
+
+
+x1 = new UniformSampler([0,100])
+x2 = new ExhaustiveSampler(["a","b"])
+x3 = new CombinatoricSampler(x1,x2)
+console.log("hello: ", x3.take(5))
 
 # ## Factor
 exports.Factor =
@@ -358,6 +400,10 @@ exports.Event =
 
     constructor: (@stimulus, @response) ->
 
+    stop: ->
+      @stimulus.stop()
+      @response.stop()
+
     start: (context) ->
       console.log("starting event", @stimulus)
       ## clear layer
@@ -406,16 +452,20 @@ exports.Trial =
         result = result.then(fun)
       result
 
+    stop: -> ev.stop() for ev in @events
+
+
+
 exports.ExperimentContext =
   class ExperimentContext
     eventLog: []
 
     trialNumber: 0
 
-    currentTrial: {}
+    currentTrial: new Trial([], {})
 
     logEvent: (key, value) ->
-      console.log("logging event")
+
       record = _.clone(@currentTrial.meta)
       record[key] = value
       @eventLog.push(record)
