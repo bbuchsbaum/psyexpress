@@ -58,6 +58,61 @@
     };
   };
 
+  this.genColoredSquareTrial = function(load) {
+    var makeGroup, s1a, s1b, s2, s3;
+    if (load == null) {
+      load = 4;
+    }
+    s1a = new Psy.ExhaustiveSampler([1, 2, 3, 4, 5, 6]);
+    s1b = new Psy.ExhaustiveSampler([1, 2, 3, 4, 5, 6]);
+    s2 = new Psy.CombinatoricSampler(s1a, s1b);
+    s3 = new Psy.ExhaustiveSampler(["red", "yellow", "orange", "blue", "pink", "brown", "black", "purple", "aqua", "fuchsia", "gray"]);
+    makeGroup = function(gloc, cols) {
+      var i, stims;
+      stims = (function() {
+        var _i, _ref, _results;
+        _results = [];
+        for (i = _i = 0, _ref = gloc.length; 0 <= _ref ? _i < _ref : _i > _ref; i = 0 <= _ref ? ++_i : --_i) {
+          _results.push(new Psy.Rectangle({
+            position: gloc[i],
+            width: 50,
+            height: 50,
+            fill: cols[i]
+          }));
+        }
+        return _results;
+      })();
+      return new Psy.Group(stims, gridlayout);
+    };
+    return function() {
+      var cols, ev1, ev2, ev3, fill, gloc, group, index, probeGroup, _i, _results;
+      gloc = s2.take(4);
+      cols = s3.take(4);
+      group = makeGroup(gloc, cols);
+      if (Math.random() > .5) {
+        index = _.shuffle((function() {
+          _results = [];
+          for (var _i = 0; 0 <= load ? _i < load : _i > load; 0 <= load ? _i++ : _i--){ _results.push(_i); }
+          return _results;
+        }).apply(this))[0];
+        console.log("index", index);
+        console.log("old cols", cols);
+        cols[index] = s3.take(1)[0];
+        console.log("new cols", cols);
+        probeGroup = makeGroup(gloc, cols);
+      } else {
+        console.log("no change!", index);
+        probeGroup = makeGroup(gloc, cols);
+      }
+      ev1 = new Psy.Event(group, Timeout1000);
+      ev2 = new Psy.Event(new Psy.Clear(), new Psy.Timeout({
+        duration: 1000
+      }));
+      ev3 = new Psy.Event(probeGroup, Timeout1000);
+      return new Psy.Trial([ev1, ev2, ev3, ClearEvent], {}, new Psy.Background([], fill = "white"));
+    };
+  };
+
   this.testSet = {
     FixationCross: {
       "Default Fixation": makeTrial(new Psy.FixationCross(), SpaceOrTimeout5000),
@@ -342,7 +397,8 @@
           height: 80,
           fill: "pink"
         })
-      ], gridlayout), SpaceKey)
+      ], gridlayout), SpaceKey),
+      "VSTM Example Trial": genColoredSquareTrial()
     },
     Sequence: {
       "Count to Three": makeTrial(new Psy.Sequence([

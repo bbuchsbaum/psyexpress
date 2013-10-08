@@ -18,6 +18,8 @@
 
 @gridlayout = new Psy.GridLayout(8,8, {x:0, y:0, width:@stage.getWidth(), height:@stage.getHeight()})
 
+
+
 @makeTrial = (stim, resp, bg=new Psy.Background([], fill= "gray")) ->
   =>
     stim.reset()
@@ -26,6 +28,45 @@
 
 @wrapEvents = (events, bg=new Psy.Background([], fill= "white")) ->
   => new Psy.Trial(events.concat(ClearEvent), {}, bg)
+
+
+
+@genColoredSquareTrial = (load=4) =>
+
+  s1a = new Psy.ExhaustiveSampler([1..6])
+  s1b = new Psy.ExhaustiveSampler([1..6])
+  s2 = new Psy.CombinatoricSampler(s1a,s1b)
+  s3 = new Psy.ExhaustiveSampler(["red", "yellow", "orange", "blue", "pink", "brown", "black", "purple", "aqua", "fuchsia", "gray"])
+
+  makeGroup = (gloc, cols) ->
+    stims = for i in [0...gloc.length]
+      new Psy.Rectangle({position: gloc[i], width: 50, height: 50, fill: cols[i] })
+    new Psy.Group(stims, gridlayout)
+
+  =>
+    gloc = s2.take(4)
+    cols = s3.take(4)
+
+    group = makeGroup(gloc, cols)
+
+    if Math.random() > .5
+      # change
+      index = _.shuffle([0...load])[0]
+      console.log("index", index)
+      console.log("old cols", cols)
+      cols[index] = s3.take(1)[0]
+      console.log("new cols", cols)
+      probeGroup = makeGroup(gloc, cols)
+    else
+      console.log("no change!", index)
+      probeGroup = makeGroup(gloc, cols)
+
+    ev1 = new Psy.Event(group, Timeout1000)
+    ev2 = new Psy.Event(new Psy.Clear(), new Psy.Timeout({duration: 1000} ))
+    ev3 = new Psy.Event(probeGroup, Timeout1000)
+
+
+    new Psy.Trial([ev1,ev2,ev3,ClearEvent], {}, new Psy.Background([], fill= "white"))
 
 
 @testSet =
@@ -120,6 +161,7 @@
         new Psy.Rectangle({position: [2,2], width: 60, height: 60, fill: "orange" }),
         new Psy.Rectangle({position: [4,4], width: 70, height: 70, fill: "cyan"}),
         new Psy.Rectangle({position: [6,6], width: 80, height: 80, fill: "pink" })], gridlayout), SpaceKey)
+    "VSTM Example Trial": genColoredSquareTrial()
 
   Sequence:
     "Count to Three": makeTrial(new Psy.Sequence(
