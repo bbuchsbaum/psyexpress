@@ -8,7 +8,7 @@
 
 @context = new Psy.KineticContext(stage)
 
-@ClearEvent = new Psy.Event(new Psy.Clear(), new Psy.Timeout({duration: 100} ))
+@ClearEvent = new Psy.Event(new Psy.Clear(), new Psy.Timeout({duration: 1000} ))
 
 @Timeout1000 = new Psy.Timeout({duration: 1000} )
 
@@ -20,13 +20,14 @@
 
 
 
-@makeTrial = (stim, resp, bg=new Psy.Background([], fill= "gray")) ->
+@makeTrial = (stim, resp, bg=new Psy.Background([],  "white")) ->
   =>
+    console.log("starting trial!")
     stim.reset()
     resp.reset()
     new Psy.Trial([new Psy.Event(stim, resp), ClearEvent], {}, bg)
 
-@wrapEvents = (events, bg=new Psy.Background([], fill= "white")) ->
+@wrapEvents = (events, bg=new Psy.Background([], "white")) ->
   => new Psy.Trial(events.concat(ClearEvent), {}, bg)
 
 
@@ -87,11 +88,49 @@
        new Psy.Text({content: "Top Center", position: "top-center", fontSize: 20}),
        new Psy.Text({content: "Bottom Left", position: "bottom-left", fontSize: 20}),
        new Psy.Text({content: "Bottom Right", position: "bottom-right", fontSize: 20}),
-       new Psy.Text({content: "Bottom Center", position: "bottom-center", fontSize: 20})]), SpaceKey)
+      new Psy.Text({content: "Bottom Center", position: "bottom-center", fontSize: 20})
+      ]), SpaceKey)
 
-    "75 Point Font": makeTrial(new Psy.Text({content: "75 Point Font", position: "center", fontSize: 75}),SpaceOrTimeout5000)
-    "12 Point Font": makeTrial(new Psy.Text({content: "12 Point Font", position: "center", fontSize: 12}),SpaceOrTimeout5000)
+    "75 Point Font": makeTrial(new Psy.Text({content: "75 Point Font", position: "center", fontSize: 75}),SpaceKey)
+    "12 Point Font": makeTrial(new Psy.Text({content: "12 Point Font", position: "center", fontSize: 12}),SpaceKey)
 
+    "Paragraph": makeTrial(new Psy.Text({
+      content:
+        "Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.\n
+        Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor\n
+        in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident,\n
+        sunt in culpa qui officia deserunt mollit anim id est laborum."
+      width:800,
+      fontSize: 24}),
+      SpaceKey)
+
+  Markdown:
+    "Basic Example": makeTrial(new Psy.Markdown('''
+
+    A First Level Header
+    ===================
+    A Second Level Header
+    ---------------------
+    ### Header 3
+
+
+    Now is the time for all good men to come to
+    the aid of their country. This is just a
+    regular paragraph.
+
+    The quick brown fox jumped over the lazy
+    dog's back.
+
+    > This is a blockquote.
+    >
+    > This is the second paragraph in the blockquote.
+    >
+    > ## This is an H2 in a blockquote
+
+    ![alt text](http://www.html5canvastutorials.com/demos/assets/yoda.jpg "Title")
+
+
+    '''), SpaceKey)
 
 
   Blank:
@@ -130,10 +169,11 @@
       for i in [0 .. 360] by 2
         new Psy.Arrow({x:300, y:300, length: 200, fill: "black", angle: i})
       [40]), SpaceKey)
+
     "Rotating Arrow no clear": makeTrial(new Psy.Sequence(
       for i in [0 .. 360] by 2
         new Psy.Arrow({x:300, y:300, length: 200, fill: "black", angle: i, opacity: i/720})
-      [40], clear=false), SpaceKey)
+      [40], clear=false),SpaceKey)
 
   Picture:
     "Default Picture": makeTrial(new Psy.Picture(), SpaceKey)
@@ -141,6 +181,9 @@
 
   StartButton:
     "Start Button": makeTrial(new Psy.StartButton({id: "start"}), new Psy.ClickResponse("start"))
+
+  MultipleChoice:
+    "Default MChoice": makeTrial(new Psy.MultipleChoice(), SpaceKey)
 
   Group:
     "Group of Circles": makeTrial(new Psy.Group(
@@ -179,8 +222,6 @@
         r = i*4
         g = 255 - (i*4)
         b = i
-
-
         new Psy.Text({content: i, position: "center", fontSize: 80 + i*2, fill: "rgb(#{r},#{g},#{b})"})
       [80]), SpaceKey)
     "Repeating Squares": makeTrial(new Psy.Sequence(
@@ -205,6 +246,9 @@
     "Even Larger Text Input": makeTrial(new Psy.TextInput({width: 500, height: 150}), SpaceKey)
     "Gigantic Text Input": makeTrial(new Psy.TextInput({width: 800, height: 300}), SpaceKey)
 
+  Dialogs:
+    "Prompt": makeTrial(Timeout1000, new Psy.Prompt({ title: "How old are you?"}))
+    "Confirm": makeTrial(Timeout1000, new Psy.Confirm({ message: "Do you want to continue?"}))
 
 
 
@@ -230,6 +274,7 @@ window.updateTests = (name) ->
 
     console.log(trial)
     @activeTrial.start(context)
+    console.log(e)
 
 
 
@@ -257,6 +302,7 @@ $(document).ready =>
     name = $(this).text()
     name = name.replace(/\s+/g, "")
     updateTests(name)
+
 
 
 

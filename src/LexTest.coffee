@@ -25,17 +25,19 @@ Exp = require("./Elements")
       reps_per_block: 4
 
 
-  Items:
-    Crossed:
-      words:
-        values: ["hello", "goodbye", "flirg", "schmirt", "black", "sweetheart", "grum", "snirg", "snake", "pet", "hirble", "kerble"]
+  ItemSet:
+    words:
+      type: "text"
 
+      items: ["hello", "goodbye", "flirg", "schmirt", "black", "sweetheart", "grum", "snirg", "snake", "pet", "hirble", "kerble"]
+
+      attributes:
         wordtype: ["word", "word", "nonword", "nonword", "word", "word", "nonword", "nonword", "word", "word", "nonword", "nonword"]
 
         syllables: [2,2,1,1,1,2,1,1,1,1,2,2]
 
-        sampler:
-          type: "Exhaustive"
+      sampler:
+        type: "Exhaustive"
 
 #Auxiliary:
 #  isi:

@@ -70,8 +70,7 @@ rep = (vec, times) ->
         el
     _.flatten(out)
   else
-    out = _.times(times[0], (n) =>
-      vec)
+    out = _.times(times[0], (n) => vec)
     _.flatten(out)
 
 repLen = (vec, length) ->
@@ -82,7 +81,6 @@ repLen = (vec, length) ->
     vec[i % vec.length]
 
 exports.permute = permute
-
 exports.rep = rep
 exports.repLen = repLen
 exports.clone = clone
@@ -160,10 +158,6 @@ class CombinatoricSampler extends Sampler
       _.flatten(xs)
 
 
-x1 = new UniformSampler([0,100])
-x2 = new ExhaustiveSampler(["a","b"])
-x3 = new CombinatoricSampler(x1,x2)
-console.log("hello: ", x3.take(5))
 
 # ## Factor
 exports.Factor =
@@ -250,11 +244,9 @@ exports.DataTable =
       nargs = _.size(vars)
       nm = _.keys(vars)
       repfac = 1
-      d = _.map(vars, (x) ->
-        x.length)
+      d = _.map(vars, (x) -> x.length)
 
-      orep = _.reduce(d, (x, acc) ->
-        x * acc)
+      orep = _.reduce(d, (x, acc) -> x * acc)
       out = {}
       for key, value of vars
         nx = value.length
@@ -273,10 +265,8 @@ exports.DataTable =
       new DataTable(out)
 
     constructor: (vars = {}) ->
-      varlen = _.map(vars, (x) ->
-        x.length)
-      samelen = _.all(varlen, (x) ->
-        x == varlen[0])
+      varlen = _.map(vars, (x) -> x.length)
+      samelen = _.all(varlen, (x) -> x == varlen[0])
 
       if not samelen
         throw "arguments to DataTable must all have same length."
@@ -302,8 +292,7 @@ exports.DataTable =
         rec = @record(i)
         count = asArray(rec[key] == value for key, value of where)
         count = _.map(count, (x) -> if x then 1 else 0)
-        count = _.reduce(asArray(count), (sum, num) ->
-          sum + num)
+        count = _.reduce(asArray(count), (sum, num) -> sum + num)
 
         if count == nkeys
           out.push(i)
@@ -319,8 +308,7 @@ exports.DataTable =
         rec = @record(i)
         count = asArray(rec[key] == value for key, value of where)
         count = _.map(count, (x) -> if x then 1 else 0)
-        count = _.reduce(asArray(count), (sum, num) ->
-          sum + num)
+        count = _.reduce(asArray(count), (sum, num) -> sum + num)
 
         if count == nkeys
           out.push(rec)
@@ -346,8 +334,7 @@ exports.DataTable =
     replicate: (nreps) ->
       out = {}
       for own name, value of this
-        out[name] = _.flatten(_.times(nreps, (n) =>
-          value))
+        out[name] = _.flatten(_.times(nreps, (n) => value))
       new DataTable(out)
 
     bindcol: (name, column) ->
@@ -424,7 +411,8 @@ exports.Event =
       @response.activate(context).then((ret) =>
         ##
         @stimulus.stop()
-        ret)
+        ret
+      )
 
 
 exports.Trial =
@@ -477,7 +465,9 @@ exports.ExperimentContext =
       funList = _.map(trialList, (trial) => (=>
         @trialNumber += 1
         @currentTrial = trial
-        trial.start(this)))
+        trial.start(this)
+      ))
+
 
 
 
@@ -486,6 +476,7 @@ exports.ExperimentContext =
       for fun in funList
         console.log("building trial list")
         result = result.then(fun)
+
       #result.done()
 
 
@@ -500,6 +491,47 @@ exports.ExperimentContext =
     mousepressStream: ->
 
     draw: ->
+
+
+
+
+exports.Presenter =
+class Presenter
+  constructor: (@trialList, @display, @stimFactory = new MockStimFactory()) ->
+    #@trialGenerator = @display.Trial
+
+  buildStimulus: (event) ->
+    stimType = _.keys(event)[0]
+    params = _.values(event)[0]
+    @stimFactory.makeStimulus(stimType, params)
+
+  buildEvent: (event) ->
+    responseType = _.keys(event)[0]
+    params = _.values(event)[0]
+    @stimFactory.makeResponse(responseType, params)
+
+  buildTrial: (eventSpec, record) ->
+
+    events = for key, value of eventSpec
+      stimSpec = _.omit(value, "Next")
+      responseSpec = _.pick(value, "Next")
+
+      stim = @buildStimulus(stimSpec)
+      response = @buildEvent(responseSpec.Next)
+      @stimFactory.makeEvent(stim, response)
+
+    new Trial(events, record)
+
+  start: (context) ->
+    for block in @trialList.blocks
+      for trialNum in [0...block.length]
+        record = _.clone(block[trialNum])
+        record.$trialNumber = trialNum
+        console.log(record)
+        #trialSpec = @trialGenerator(record)
+        #@buildTrial(trialSpec, record)
+
+      #context.start(trialList)
 
 
 # Experiment
@@ -568,8 +600,7 @@ exports.ConditionalSampler =
       keySet = for i in [0...ctable.nrow()]
         record = ctable.record(i)
         levs = _.values(record)
-        _.reduce(levs, ((a, b) ->
-          a + ":" + b))
+        _.reduce(levs, ((a, b) -> a + ":" + b))
 
       console.log(keySet)
 
@@ -619,12 +650,9 @@ exports.FactorSpec =
   class FactorSpec extends VarSpec
 
     constructor: (@name, @levels) ->
-      console.log(@name)
-      console.log(@levels)
       @factorSet = {}
       @factorSet[@name] = @levels
       @conditionTable = DataTable.expand(@factorSet)
-      #@expanded = @expand(@nblocks, @reps)
 
     cross: (other) ->
       new CrossedFactorSpec(@nblocks, @reps, [this, other])
@@ -638,8 +666,7 @@ exports.FactorSpec =
 
       blocks = for i in [1..nblocks]
         vset.replicate(reps)
-      concatBlocks = _.reduce(blocks, (sum, nex) ->
-        DataTable.rbind(sum, nex))
+      concatBlocks = _.reduce(blocks, (sum, nex) -> DataTable.rbind(sum, nex))
       concatBlocks.bindcol("$Block", rep([1..nblocks], rep(reps * vset.nrow(), nblocks)))
       concatBlocks
 
@@ -647,65 +674,200 @@ exports.FactorSpec =
     #  @expanded[block][@name][trial]
 
 
-exports.CrossedFactorSpec =
-  class CrossedFactorSpec extends VarSpec
+exports.CellTable =
+  class CellTable extends VarSpec
     constructor: ( @parents) ->
       @parentNames = (fac.name for fac in @parents)
-      @name = _.reduce(@parentNames, (n, n1) ->
-        n + ":" + n1)
+      @name = _.reduce(@parentNames, (n, n1) -> n + ":" + n1)
       @levels = (fac.levels for fac in @parents)
       @factorSet = _.zipObject(@parentNames, @levels)
-      @conditionTable = DataTable.expand(@factorSet)
+      @table = DataTable.expand(@factorSet)
       #@expanded = @expand(@nblocks, @reps)
 
-    names: ->
-      @parentNames
+    names: -> @parentNames
 
-    #levels: -> @levels
+
+    conditions: ->
+      for i in [0...@table.nrow()]
+        rec = @table.record(i)
+        _.reduce(rec, (n,n1) -> n + ":" + n1)
+
+
 
     expand: (nblocks, reps) ->
       blocks = for i in [1..nblocks]
-        @conditionTable.replicate(reps)
-      concatBlocks = _.reduce(blocks, (sum, nex) ->
-        DataTable.rbind(sum, nex))
-      concatBlocks.bindcol("$Block", rep([1..nblocks], rep(reps * @conditionTable.nrow(), nblocks)))
-      concatBlocks
+        @table.replicate(reps)
+      #concatBlocks = _.reduce(blocks, (sum, nex) -> DataTable.rbind(sum, nex))
+      #concatBlocks.bindcol("$Block", rep([1..nblocks], rep(reps * @conditionTable.nrow(), nblocks)))
+      #concatBlocks
 
     #valueAt: (block, trial) ->
     #  @expanded[block][name][trial] for name in @parentNames
 
 
-exports.TaskSpec =
-  class TaskSpec
-    constructor: (@varSpecs, @crossedSet=[]) ->
-      # extract name of each variable
-      @varnames = _.map(@varSpecs, (x) -> x.names())
 
-      # store names and variables in object
+
+
+
+exports.TaskNode =
+class TaskNode
+  constructor: (@varSpecs, @crossedSet=[]) ->
+    # extract name of each variable
+    @factorNames = _.map(@varSpecs, (x) -> x.names())
+
+    # store names and variables in object
+    @varmap = {}
+    for i in [0...@factorNames.length]
+      @varmap[@factorNames[i]] = @varSpecs[i]
+
+    if (@crossedSet.length > 0)
+      @crossedVars = @varmap[vname] for vname in @crossedSet
+      @crossedSpec = new CrossedFactorSpec(@crossedVars)
+    else
+      @crossedVars = []
+      @crossedSpec = {}
+
+    @uncrossedVars = _.difference(@factorNames, @crossedSet)
+    @uncrossedSpec = @varmap[vname] for vname in @uncrossedVars
+
+    expand: (nblocks, nreps) ->
+      if @crossedVars.length > 0
+        ctable = @crossedSpec.expand(nblocks, nreps)
+
+
+
+exports.FactorNode =
+  class FactorNode
+
+    @build: (name, spec) ->
+      new FactorNode(name, spec.levels)
+
+    constructor: (@name, @levels) ->
+      @cellTable = new CellTable([this])
+
+
+exports.FactorSetNode =
+  class FactorSetNode
+
+    @build: (spec) ->
+      fnodes = for key, value of spec
+        FactorNode.build(key, value)
+
+      new FactorSetNode(fnodes)
+
+    constructor: (@factors) ->
+      @factorNames = _.map(@factors, (x) -> x.name)
       @varmap = {}
-      for i in [0...@varnames.length]
-        @varmap[@varnames[i]] = @varSpecs[i]
+      for i in [0...@factorNames.length]
+        @varmap[@factorNames[i]] = @factors[i]
 
-      if (@crossedSet.length > 0)
-        @crossedVars = @varmap[vname] for vname in @crossedSet
-        @crossedSpec = new CrossedFactorSpec(@crossedVars)
-      else
-        @crossedVars = []
-        @crossedSpec = {}
+      @cellTable = new CellTable(@factors)
+      @name = @cellTable.name
 
-      @uncrossedVars = _.difference(@varnames, @crossedSet)
-      @uncrossedSpec = @varmap[vname] for vname in @uncrossedVars
+    levels: -> @cellTable.levels
 
-      expand: (nblocks, nreps) ->
-        if @crossedVars.length > 0
-          ctable = @crossedSpec.expand(nblocks, nreps)
+    conditions: -> @cellTable.conditions()
+
+    expand: (nblocks, nreps) -> @cellTable.expand(nblocks, nreps)
+
+    trialList: (nblocks=1, nreps=1) ->
+      blocks = @expand(nblocks, nreps)
+      tlist = new TrialList(nblocks)
+      for i in [0...blocks.length]
+        blk = blocks[i]
+        for j in [0...blk.nrow()]
+          tlist.add(i, blk.record(j))
+      tlist
 
 
 
 
+exports.ItemNode =
+  class ItemNode
+
+    @build: (name, spec) ->
+      attrs = new DataTable(spec.attributes)
+      new ItemNode(name, spec.items, attrs, spec.type)
+
+    constructor: (@name, @items, @attributes, @type) ->
+      if @items.length != @attributes.nrow()
+        throw "Number of items must equal number of attributes"
 
 
+exports.VariablesNode =
+  class VariablesNode
 
+    constructor: (@variables=[], @crossed=[]) ->
+
+
+exports.TaskSchema =
+  class TaskSchema
+
+    @build: (spec) ->
+      schema= {}
+      for key, value of spec
+        schema[key] = FactorSetNode.build(value)
+
+      new TaskSchema(schema)
+
+    constructor: (@schema) ->
+
+    trialTypes: -> _.keys(@schema)
+
+    factors: (type) -> @schema[type]
+
+
+exports.TrialList =
+  class TrialList
+
+
+    constructor: (nblocks) ->
+      @blocks = []
+      @blocks.push([]) for i in [0...nblocks]
+
+    add: (block, trial, type="main") ->
+      #if (block >= @blocks.length)
+        #blen = @blocks.length
+        #throw "block argument #{block} exceeds number of blocks in TrialList #{blen}"
+
+      trial.$TYPE = type
+      @blocks[block].push(trial)
+
+    get: (block, trialNum) ->
+      @blocks[block][trialNum]
+
+    getBlock: (block) ->
+      @blocks[block]
+
+    ntrials: ->
+      nt = _.map(@blocks, (b) -> b.length)
+      _.reduce(nt, (x0,x1) -> x0 + x1)
+
+    shuffle: ->
+      @blocks = _.map(@blocks, (blk) -> _.shuffle(blk))
+
+    blockIterator: -> new ArrayIterator(_.map(@blocks, (blk) -> new ArrayIterator(blk)))
+
+exports.Iterator =
+class Iterator
+
+  hasNext: -> false
+  next: -> throw "empty iterator"
+  map: (f) ->
+
+exports.ArrayIterator =
+class ArrayIterator extends Iterator
+  constructor: (@arr) ->
+    @cursor = 0
+
+    hasNext: -> @cursor < @arr.length
+
+    next: ->
+      ret = @arr[@cursor]
+      @cursor = @cursor + 1
+      ret
+
+    map: (f) -> _.map(@arr, (el) -> f(el))
 
 
 # ## ExpDesign
@@ -756,8 +918,7 @@ exports.ExpDesign =
       keySet = for i in [0...crossedVariables.nrow()]
         record = crossedVariables.record(i)
         levs = _.values(record)
-        _.reduce(levs, ((a, b) ->
-          a + ":" + b))
+        _.reduce(levs, ((a, b) -> a + ":" + b))
 
 
       values = itemSpec["values"]
@@ -783,7 +944,7 @@ exports.ExpDesign =
 
       @structure = @design["Structure"]
 
-      @varnames = _.keys(@variables)
+      @factorNames = _.keys(@variables)
 
       @crossed = @variables["Crossed"]
 
@@ -831,23 +992,27 @@ exports.ExpDesign =
 
       crossedSampler = @makeConditionalSampler(@crossedSpec, crossedItems)
 
-      @fullDesign = @crossedSpec.expanded.bindcol(_.keys(crossedItems)[0],
-        crossedSampler.take(@crossedSpec.expanded.nrow()))
+      @fullDesign = @crossedSpec.expanded.bindcol(_.keys(crossedItems)[0], crossedSampler.take(@crossedSpec.expanded.nrow()))
 
       console.log(@crossedDesign)
 
 
-dt1 = DataTable.fromRecords([{a:1, b:2}, {c:1, d:2, a:88}])
-dt2 = DataTable.fromRecords([{a:1, b:2}])
-dt2.show()
 
-dt3 = DataTable.rbind(dt1, dt2, true)
-dt3.show()
-#dt = new DataTable({x: [1,2,3,4,5,2,1], y: ['a', 'b', 'b', 'c', 'd', 'e', 'a']})
-#res = dt.select({y: 'b'})
-#console.log(res)
+des = Design:
+  Blocks: [
+      [
+        a:1, b:2, c:3
+        a:2, b:3, c:4
+      ],
+      [
+        a:5, b:7, c:6
+        a:5, b:7, c:6
+      ]
 
-#dt2 = dt.bindrow([{x: 26, y: 'u'}, {x:66, y:88}])
-#dt2.show()
+  ]
+
+console.log(des.Blocks)
+
+
 
 

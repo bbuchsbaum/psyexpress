@@ -6,10 +6,31 @@
     <script type="text/javascript" src="/javascripts/jquery-1.7.min.js"></script>
     <script type="text/javascript" src="/javascripts/buzz.js"></script>
     <script type="text/javascript" src="/javascripts/lodash.js"></script>
+    <script type="text/javascript" src="/javascripts/vex.combined.min.js"></script>
+    <script type="text/javascript" src="/javascripts/markdown.js"></script>
+    <link href="/stylesheets/vex.css" rel="stylesheet"  />
+    <link href="/stylesheets/vex-theme-wireframe.css" rel="stylesheet" />
     <link href="/stylesheets/bootstrap.css" rel="stylesheet" media="screen">
-    <link href="/stylesheets/uikit.gradient.min.css" rel="stylesheet"/>
+    <!--<link href="/stylesheets/avenir-white.css" rel="stylesheet">-->
+    <style>
+        #container {
+            width: 800px;
+            background-color: beige;
+            position: relative;
+            margin: 0 auto;
+        }
+        #htmlcontainer {
+            width: 800px;
+            position: absolute;
+            margin: 0 auto;
+            z-index: 999;
+            background-color: white;
+            border: 1px solid black;
+        }
+    </style>
 
 </head>
+
 <body>
     <div class="container-fluid">
         <div class="row-fluid">
@@ -34,7 +55,9 @@
                 <div class="page-header">
                     <h1 class="text-center">Capabilities Test <small>for Psycloud Graphical and Audio Elements</small></h1>
                 </div>
-                <div class="container" id="container"></div>
+                <div class="container" id="container">
+
+                </div>
                 <div id="footer">
                     <h4 class="text-center" id="footer-message">Message Goes Here</h4>
                 </div>

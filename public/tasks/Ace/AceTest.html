@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>ACE in Action</title>
+    <link href="/stylesheets/bootstrap.css" rel="stylesheet" media="screen">
+    <style type="text/css" media="screen">
+        #editor {
+            position: relative;
+            top: 0;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 800px;
+        }
+
+        #editor1 {
+            position: relative;
+            top: 0;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height:800px;
+
+        }
+
+        #leftdiv {
+            position: relative;
+            height:800px;
+            width: 800px;
+        }
+
+        #rightdiv {
+            position: relative;
+            height:800px;
+            width: 800px;
+        }
+
+        #sendbutton {
+            margin-top: 5px;
+            margin-left: 5px;
+        }
+
+
+
+
+    </style>
+</head>
+<body>
+<div class="container-fluid">
+    <div class="row-fluid">
+        <div class="span5">
+            <div class="page-header">
+                <h1>Coffeescript Code</h1>
+            </div>
+            <div id="leftdiv">
+                <div id="editor">
+                    x = 5
+                    fun = (x,y) ->
+                        x + y
+                </div>
+
+                <p>
+                    <button class="btn btn-large btn-primary" type="button" id="sendbutton">Send</button>
+                </p>
+
+            </div>
+
+        </div>
+        <div class="span5">
+            <div class="page-header">
+                <h1>Javascript Code</h1>
+            </div>
+            <div id="rightdiv">
+                <div id="editor1">
+                    var x = 1;
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<script type="text/javascript" src="/javascripts/jquery-1.7.min.js"></script>
+<script src="/javascripts/ace-builds-1.1.01/src-noconflict/ace.js" type="text/javascript" charset="utf-8"></script>
+<script type="text/javascript" src="acetest.js"></script>
+</body>
+</html>

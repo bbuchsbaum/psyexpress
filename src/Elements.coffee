@@ -19,7 +19,7 @@ doTimer = (length, oncomplete) ->
   start = getTimestamp()
   instance = ->
     diff = (getTimestamp() - start)
-    if (diff >= length)
+    if diff >= length
       oncomplete(diff)
     else
       half = Math.max((length - diff)/2,1)
@@ -35,14 +35,13 @@ doTimer = (length, oncomplete) ->
 disableBrowserBack = ->
   if not @browserBackDisabled
     rx = /INPUT|SELECT|TEXTAREA/i
+
     @browserBackDisabled = true
+
     $(document).bind("keydown keypress", (e) ->
       if e.which is 8
-      #alert("intercepting delete?")
         if !rx.test(e.target.tagName) or e.target.disabled or e.target.readOnly
           e.preventDefault())
-
-
 
 
 #doTimer = (length, resolution, oninstance, oncomplete) ->
@@ -186,10 +185,35 @@ class Prompt extends Response
     deferred = Q.defer()
     promise = Q.delay(@spec.delay)
     promise.then((f) =>
-      result = window.prompt(@spec.title, @spec.defaultValue)
-      deferred.resolve(result))
+      vex.dialog.prompt
+        message: @spec.title
+        placeholder: @spec.defaultValue
+        className: 'vex-theme-wireframe'
+        callback: (value) -> deferred.resolve(value)
+    )
+
+      #result = window.prompt(@spec.title, @spec.defaultValue)
+      #deferred.resolve(result))
     deferred.promise
 
+exports.Confirm =
+  class Confirm extends Response
+    constructor: (@spec = {}) ->
+      @spec = _.defaults(@spec, { message: "", delay: 0, defaultValue: "" })
+
+    activate: (context) ->
+      deferred = Q.defer()
+      promise = Q.delay(@spec.delay)
+      promise.then((f) =>
+        vex.dialog.confirm
+          message: @spec.message
+          className: 'vex-theme-wireframe'
+          callback: (value) -> deferred.resolve(value)
+      )
+
+      #result = window.prompt(@spec.title, @spec.defaultValue)
+      #deferred.resolve(result))
+      deferred.promise
 
 
 exports.TypedResponse =
@@ -276,6 +300,9 @@ class SpaceKeyResponse extends Response
       console.log(char)
       console.log(event.keyCode)
       event.keyCode == 32).take(1).onValue((event) =>
+        console.log("resolving space key")
+
+
         context.logEvent("SpaceKey", getTimestamp())
         deferred.resolve(event))
 
@@ -484,6 +511,8 @@ class Group extends Stimulus
   render: (context, layer) ->
     for stim in @stims
       stim.render(context, layer)
+
+# VerticalGroup lays out stimuli from top to bottom
 
 
 exports.Background =
@@ -706,7 +735,7 @@ position = (pos, offx, offy, width, height, xy) ->
 exports.Text =
 class Text extends Stimulus
   constructor: (spec = {}) ->
-    @spec = _.defaults(spec, { content: "Text", x: 100, y: 100, fill: "black", fontSize: 50, fontFamily: "Arial", lineHeight: 1, textAlign: "center", position: null} )
+    @spec = _.defaults(spec, { content: "Text", x: 5, y: 5, width: null, fill: "black", fontSize: 50, fontFamily: "Arial", lineHeight: 1, textAlign: "center", position: null} )
 
 
   render: (context, layer) ->
@@ -719,6 +748,7 @@ class Text extends Stimulus
       fontSize: @spec.fontSize,
       fontFamily: @spec.fontFamily,
       fill: @spec.fill
+      #width: @spec.width or context.width()
       listening: false
     })
 
@@ -726,10 +756,58 @@ class Text extends Stimulus
       xy = position(@spec.position, -text.getWidth()/2, -text.getHeight()/2, context.width(), context.height(), [@spec.x, @spec.y])
       text.setPosition({x:xy[0], y:xy[1]})
 
+
+
     layer.add(text)
 
 
+exports.Paragraph =
+class Paragraph extends Stimulus
+  constructor: (spec = {}) ->
+    @spec = _.defaults(spec, { content: "", x: 50, y: 50, width: 600, fill: "black", fontSize: 18, fontFamily: "Arial", lineHeight: 1, textAlign: "center", position: null} )
 
+exports.Markdown =
+class Markdown extends Stimulus
+  constructor: (input) ->
+    @html = markdown.toHTML(input)
+
+  render: (context, layer) ->
+    console.log(@html)
+    context.clearHtml()
+    context.appendHtml(@html)
+
+
+
+exports.MultipleChoice =
+class MultipleChoice extends Stimulus
+  constructor: (spec={}) ->
+    @spec = _.defaults(spec, { question: "What is your name?", options: ["Bill", "John", "Fred"], x: 10, y: 10, fill: "black", fontSize: 24, fontFamily: "Arial", textAlign: "center", position: null} )
+
+  render: (context, layer) ->
+    questionText = new Kinetic.Text({
+      x: @spec.x
+      y: @spec.y
+      text: @spec.question
+      fontSize: @spec.fontSize
+      fontFamily: @spec.fontFamily
+      fill: @spec.fill
+    })
+
+    layer.add(questionText)
+
+    for i in [0...@spec.options.length]
+      choice = new Kinetic.Text({
+        x: @spec.x + 5
+        y: questionText.getHeight() * (i+1) + 30
+        text: (i+1) + ") " + @spec.options[i]
+        fontSize: @spec.fontSize
+        fontFamily: @spec.fontFamily
+        fill: @spec.fill
+        padding: 20
+        align: 'left'
+      })
+
+      layer.add(choice)
 
 
 exports.KineticContext =
@@ -751,6 +829,45 @@ class KineticContext extends Psy.ExperimentContext
     @stage.on("mousedown", -> console.log("stage mouse down"))
     @stage.getContent().addEventListener('mousedown', () -> console.log("stage dom click"))
 
+    @insertHTMLDiv()
+
+    $("document").keydown ->
+      console.log("container key down!!!!")
+
+
+
+
+  insertHTMLDiv: ->
+    $("canvas").css("position", "absolute")
+    $(".kineticjs-content").css("position", "absolute")
+
+
+    $("#container" ).append("""
+      <div id="htmlcontainer" class="htmllayer">
+              <p>This <em>is</em> heading 1</p>
+
+      </div>
+      """)
+    $("#htmlcontainer").css("position", "absolute")
+    $("#htmlcontainer").css("z-index", 999)
+    $("#container").attr("tabindex", 0)
+    #$("#container").css("outline", "none")
+
+
+  clearHtml: ->
+    $("#htmlcontainer").empty()
+
+  appendHtml: (input) ->
+    $("#htmlcontainer").addClass("htmllayer")
+    $("#htmlcontainer").append(input)
+    $("#htmlcontainer").show()
+
+  hideHtml: ->
+    $("#htmlcontainer").hide()
+    #$("#htmlcontainer").empty()
+
+
+
   setBackground: (newBackground) ->
     @background = newBackground
     @backgroundLayer.removeChildren()
@@ -762,12 +879,16 @@ class KineticContext extends Psy.ExperimentContext
     @backgroundLayer.removeChildren()
 
   clearContent: (draw=false) ->
+    console.log("clearing html")
+    @hideHtml()
     @contentLayer.removeChildren()
     if draw
       @draw()
+    console.log("finished clearing content")
 
 
   draw: ->
+    $('#container' ).focus()
     #@background.render(this, @backgroundLayer)
     @backgroundLayer.draw()
     @contentLayer.draw()
@@ -782,9 +903,12 @@ class KineticContext extends Psy.ExperimentContext
 
   offsetY: -> @stage.getOffsetY()
 
-  keydownStream: -> Bacon.fromEventTarget(window, "keydown")
 
-  keypressStream: -> Bacon.fromEventTarget(window, "keypress")
+
+  keydownStream: -> $("body").asEventStream("keydown")
+
+
+  keypressStream: -> $("body").asEventStream("keypress")
 
   mousepressStream: ->
     class MouseBus
@@ -825,4 +949,3 @@ class KineticStimFactory extends Psy.StimFactory
   makeEvent: (stim, response) -> new Psy.Event(stim, response)
 
 
-x = new Sequence(['a', 'b', 'c'], [0,1000,1500])
