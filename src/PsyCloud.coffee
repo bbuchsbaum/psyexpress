@@ -80,10 +80,23 @@ repLen = (vec, length) ->
   for i in [0...length]
     vec[i % vec.length]
 
+
+sample = (elements, n, replace=false) ->
+  if n > elements.length and not replace
+    throw "cannot take sample larger than the number of elements when 'replace' argument is false"
+  if not replace
+    _.shuffle(elements)[0...n]
+  else
+    for i in [0...n]
+      Math.floor(Math.random() * elements.length)
+
+
+
 exports.permute = permute
 exports.rep = rep
 exports.repLen = repLen
 exports.clone = clone
+exports.sample = sample
 
 console.log(permute([1,2,3]))
 
@@ -96,15 +109,28 @@ exports.Sampler =
 
     constructor: (@items) ->
 
+    sampleFrom: (items, n) ->
+      sample(items, n)
+
     take: (n) ->
       if n > @items.length
         throw "cannot take sample larger than the number of items when using non-replacing sampler"
-      _.shuffle(@items)[0...n]
+      @sampleFrom(@items, n)
+
+    #takeWithout: (n, exclusionSet) ->
+    #  pool = _.difference(@items, exclusionSet)
+    #  res = []
+    #  while (res.length != n)
+    #    sam = @take(1)
+    #    res.push(_.difference(sam, exclusionSet))
+    #    res = _.flatten(res)
+    #  _.flatten(res)
+
 
 
 # ## ExhaustiveSampler
 exports.ExhaustiveSampler =
-  class ExhaustiveSampler
+  class ExhaustiveSampler extends Sampler
 
     @fillBuffer: (items, n) ->
       buf = (_.shuffle(items) for i in [1..n])
@@ -128,6 +154,29 @@ exports.ExhaustiveSampler =
         # place remaining items from previous buffer at head of the new buffer
         @buffer = @buffer.concat(buf)
         @take(n)
+
+
+
+exports.MatchSampler =
+class MatchSampler
+  constructor: (@sampler) ->
+
+  take: (n, match=true) ->
+    sam = @sampler.take(n)
+    if match
+      probe = sample(sam, 1)[0]
+    else
+      probe = @sampler.take(1)[0]
+
+    probeIndex = _.indexOf(sam, probe)
+
+    {targetSet: sam, probe: probe, probeIndex: probeIndex, match: match}
+
+msam = new MatchSampler(new ExhaustiveSampler([0..25]))
+console.log("match:", msam.take(5))
+console.log("non match:", msam.take(5, false))
+
+
 
 # ## UniformSampler
 exports.UniformSampler =
@@ -156,6 +205,17 @@ class CombinatoricSampler extends Sampler
       xs = for j in [0...@samplers.length]
         @samplers[j].take(1)
       _.flatten(xs)
+
+exports.GridSampler =
+class GridSampler extends Sampler
+  constructor: (@x, @y) ->
+    @grid = DataTable.expand({x:@x, y:@y})
+    console.log("rows:", @grid.nrow())
+    @tuples = for i in [0...@grid.nrow()]
+      _.values(@grid.record(i))
+
+  take: (n) ->
+    sample(@tuples, n)
 
 
 
@@ -358,26 +418,26 @@ exports.DataTable =
 
 exports.StimFactory =
   class StimFactory
-    makeStimulus: (name, params) ->
+    makeStimulus: (name, params,context) ->
 
-    makeResponse: (name, params) ->
+    makeResponse: (name, params, context) ->
 
-    makeEvent: (stim, response) ->
+    makeEvent: (stim, response, context) ->
 
 
 exports.MockStimFactory =
   class MockStimFactory extends StimFactory
-    makeStimulus: (name, params) ->
+    makeStimulus: (name, params, context) ->
       ret = {}
       ret[name] = params
       ret
 
-    makeResponse: (name, params) ->
+    makeResponse: (name, params, context) ->
       ret = {}
       ret[name] = params
       ret
 
-    makeEvent: (stim, response) ->
+    makeEvent: (stim, response, context) ->
       [stim, response]
 
 
@@ -396,7 +456,14 @@ exports.Event =
       ## clear layer
 
       if not @stimulus.overlay
+        console.log("clearing event content")
         context.clearContent()
+
+      #else
+      #  console.log("stimulus overlay", @stimulus.overlay)
+      #  context.clearContent()
+        #context.drawBackground()
+
 
       console.log("rendering event")
 
@@ -468,14 +535,13 @@ exports.ExperimentContext =
         trial.start(this)
       ))
 
-
-
-
       result = Q.resolve(0)
 
       for fun in funList
         console.log("building trial list")
         result = result.then(fun)
+
+      result
 
       #result.done()
 
@@ -498,40 +564,47 @@ exports.ExperimentContext =
 exports.Presenter =
 class Presenter
   constructor: (@trialList, @display, @stimFactory = new MockStimFactory()) ->
-    #@trialGenerator = @display.Trial
+    @trialBuilder = @display.Trial
 
-  buildStimulus: (event) ->
+  buildStimulus: (event, context) ->
     stimType = _.keys(event)[0]
     params = _.values(event)[0]
-    @stimFactory.makeStimulus(stimType, params)
+    console.log("making stim", stimType)
+    console.log("params", params)
+    @stimFactory.makeStimulus(stimType, params, context)
 
-  buildEvent: (event) ->
+  buildEvent: (event, context) ->
     responseType = _.keys(event)[0]
     params = _.values(event)[0]
-    @stimFactory.makeResponse(responseType, params)
+    @stimFactory.makeResponse(responseType, params, context)
 
-  buildTrial: (eventSpec, record) ->
+  buildTrial: (eventSpec, record, context) ->
 
     events = for key, value of eventSpec
       stimSpec = _.omit(value, "Next")
       responseSpec = _.pick(value, "Next")
 
-      stim = @buildStimulus(stimSpec)
-      response = @buildEvent(responseSpec.Next)
-      @stimFactory.makeEvent(stim, response)
+      stim = @buildStimulus(stimSpec, context)
+      response = @buildEvent(responseSpec.Next, context)
+      @stimFactory.makeEvent(stim, response, context)
 
-    new Trial(events, record)
+    new Trial(events, record, new Psy.Background([],  "gray"))
 
   start: (context) ->
-    for block in @trialList.blocks
+    tlist = for block in @trialList.blocks
       for trialNum in [0...block.length]
+        console.log("tnum", trialNum)
         record = _.clone(block[trialNum])
         record.$trialNumber = trialNum
-        console.log(record)
-        #trialSpec = @trialGenerator(record)
-        #@buildTrial(trialSpec, record)
+        console.log("record", record)
+        trialSpec = @trialBuilder(record)
+        console.log("tspec", trialSpec)
+        trial = @buildTrial(trialSpec.Events, record, context)
+        console.log("trial", trial)
+        trial
 
-      #context.start(trialList)
+    console.log(tlist[0])
+    context.start(tlist[0])
 
 
 # Experiment
@@ -554,17 +627,17 @@ exports.Experiment =
       @trialGenerator = @display.Trial
 
 
-    buildStimulus: (event) ->
+    buildStimulus: (event, context) ->
       stimType = _.keys(event)[0]
       params = _.values(event)[0]
-      @stimFactory.makeStimulus(stimType, params)
+      @stimFactory.makeStimulus(stimType, params, context)
 
-    buildEvent: (event) ->
+    buildEvent: (event, context) ->
       responseType = _.keys(event)[0]
       params = _.values(event)[0]
-      @stimFactory.makeResponse(responseType, params)
+      @stimFactory.makeResponse(responseType, params, context)
 
-    buildTrial: (eventSpec, record) ->
+    buildTrial: (eventSpec, record, context) ->
 
       events = for key, value of eventSpec
         stimSpec = _.omit(value, "Next")
@@ -584,7 +657,7 @@ exports.Experiment =
         record = trials.record(i)
         record.$trialNumber = i
         trialSpec = @trialGenerator(record)
-        @buildTrial(trialSpec, record)
+        @buildTrial(trialSpec, record, context)
 
       context.start(trialList)
 
@@ -996,6 +1069,8 @@ exports.ExpDesign =
 
       console.log(@crossedDesign)
 
+sam = new GridSampler([1,2,3], [1,2,3])
+console.log("grid", sam.take(5))
 
 
 des = Design:

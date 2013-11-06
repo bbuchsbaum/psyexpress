@@ -65,7 +65,7 @@
   });
   require.define('/PsyCloud.js', function (module, exports, __dirname, __filename) {
     (function () {
-      var ArrayIterator, CellTable, CombinatoricSampler, ConditionalSampler, DataTable, Event, ExhaustiveSampler, ExpDesign, Experiment, ExperimentContext, Factor, FactorNode, FactorSetNode, FactorSpec, ItemNode, Iterator, MockStimFactory, Presenter, Q, Sampler, StimFactory, TaskNode, TaskSchema, Trial, TrialList, UniformSampler, VarSpec, VariablesNode, asArray, clone, des, permute, rep, repLen, _, _ref, __hasProp = {}.hasOwnProperty, __extends = function (child, parent) {
+      var ArrayIterator, CellTable, CombinatoricSampler, ConditionalSampler, DataTable, Event, ExhaustiveSampler, ExpDesign, Experiment, ExperimentContext, Factor, FactorNode, FactorSetNode, FactorSpec, GridSampler, ItemNode, Iterator, MatchSampler, MockStimFactory, Presenter, Q, Sampler, StimFactory, TaskNode, TaskSchema, Trial, TrialList, UniformSampler, VarSpec, VariablesNode, asArray, clone, des, msam, permute, rep, repLen, sam, sample, _, _i, _ref, _results, __hasProp = {}.hasOwnProperty, __extends = function (child, parent) {
           for (var key in parent) {
             if (__hasProp.call(parent, key))
               child[key] = parent[key];
@@ -185,10 +185,29 @@
         }
         return _results;
       };
+      sample = function (elements, n, replace) {
+        var i, _i, _results;
+        if (replace == null) {
+          replace = false;
+        }
+        if (n > elements.length && !replace) {
+          throw "cannot take sample larger than the number of elements when 'replace' argument is false";
+        }
+        if (!replace) {
+          return _.shuffle(elements).slice(0, n);
+        } else {
+          _results = [];
+          for (i = _i = 0; 0 <= n ? _i < n : _i > n; i = 0 <= n ? ++_i : --_i) {
+            _results.push(Math.floor(Math.random() * elements.length));
+          }
+          return _results;
+        }
+      };
       exports.permute = permute;
       exports.rep = rep;
       exports.repLen = repLen;
       exports.clone = clone;
+      exports.sample = sample;
       console.log(permute([
         1,
         2,
@@ -198,15 +217,19 @@
         function Sampler(items) {
           this.items = items;
         }
+        Sampler.prototype.sampleFrom = function (items, n) {
+          return sample(items, n);
+        };
         Sampler.prototype.take = function (n) {
           if (n > this.items.length) {
             throw 'cannot take sample larger than the number of items when using non-replacing sampler';
           }
-          return _.shuffle(this.items).slice(0, n);
+          return this.sampleFrom(this.items, n);
         };
         return Sampler;
       }();
-      exports.ExhaustiveSampler = ExhaustiveSampler = function () {
+      exports.ExhaustiveSampler = ExhaustiveSampler = function (_super) {
+        __extends(ExhaustiveSampler, _super);
         ExhaustiveSampler.fillBuffer = function (items, n) {
           var buf, i;
           buf = function () {
@@ -240,7 +263,41 @@
           }
         };
         return ExhaustiveSampler;
+      }(Sampler);
+      exports.MatchSampler = MatchSampler = function () {
+        function MatchSampler(sampler) {
+          this.sampler = sampler;
+        }
+        MatchSampler.prototype.take = function (n, match) {
+          var probe, probeIndex, sam;
+          if (match == null) {
+            match = true;
+          }
+          sam = this.sampler.take(n);
+          if (match) {
+            probe = sample(sam, 1)[0];
+          } else {
+            probe = this.sampler.take(1)[0];
+          }
+          probeIndex = _.indexOf(sam, probe);
+          return {
+            targetSet: sam,
+            probe: probe,
+            probeIndex: probeIndex,
+            match: match
+          };
+        };
+        return MatchSampler;
       }();
+      msam = new MatchSampler(new ExhaustiveSampler(function () {
+        _results = [];
+        for (_i = 0; _i <= 25; _i++) {
+          _results.push(_i);
+        }
+        return _results;
+      }.apply(this)));
+      console.log('match:', msam.take(5));
+      console.log('non match:', msam.take(5, false));
       exports.UniformSampler = UniformSampler = function (_super) {
         __extends(UniformSampler, _super);
         UniformSampler.validate = function (range) {
@@ -258,12 +315,12 @@
         UniformSampler.prototype.take = function (n) {
           var i, nums;
           nums = function () {
-            var _i, _results;
-            _results = [];
-            for (i = _i = 1; 1 <= n ? _i <= n : _i >= n; i = 1 <= n ? ++_i : --_i) {
-              _results.push(Math.round(Math.random() * this.interval));
+            var _j, _results1;
+            _results1 = [];
+            for (i = _j = 1; 1 <= n ? _j <= n : _j >= n; i = 1 <= n ? ++_j : --_j) {
+              _results1.push(Math.round(Math.random() * this.interval));
             }
-            return _results;
+            return _results1;
           }.call(this);
           return nums;
         };
@@ -277,22 +334,47 @@
           this.samplers = samplers;
         }
         CombinatoricSampler.prototype.take = function (n) {
-          var i, j, xs, _i, _results;
-          _results = [];
-          for (i = _i = 0; 0 <= n ? _i < n : _i > n; i = 0 <= n ? ++_i : --_i) {
+          var i, j, xs, _j, _results1;
+          _results1 = [];
+          for (i = _j = 0; 0 <= n ? _j < n : _j > n; i = 0 <= n ? ++_j : --_j) {
             xs = function () {
-              var _j, _ref, _results1;
-              _results1 = [];
-              for (j = _j = 0, _ref = this.samplers.length; 0 <= _ref ? _j < _ref : _j > _ref; j = 0 <= _ref ? ++_j : --_j) {
-                _results1.push(this.samplers[j].take(1));
+              var _k, _ref, _results2;
+              _results2 = [];
+              for (j = _k = 0, _ref = this.samplers.length; 0 <= _ref ? _k < _ref : _k > _ref; j = 0 <= _ref ? ++_k : --_k) {
+                _results2.push(this.samplers[j].take(1));
               }
-              return _results1;
+              return _results2;
             }.call(this);
-            _results.push(_.flatten(xs));
+            _results1.push(_.flatten(xs));
           }
-          return _results;
+          return _results1;
         };
         return CombinatoricSampler;
+      }(Sampler);
+      exports.GridSampler = GridSampler = function (_super) {
+        __extends(GridSampler, _super);
+        function GridSampler(x, y) {
+          var i;
+          this.x = x;
+          this.y = y;
+          this.grid = DataTable.expand({
+            x: this.x,
+            y: this.y
+          });
+          console.log('rows:', this.grid.nrow());
+          this.tuples = function () {
+            var _j, _ref, _results1;
+            _results1 = [];
+            for (i = _j = 0, _ref = this.grid.nrow(); 0 <= _ref ? _j < _ref : _j > _ref; i = 0 <= _ref ? ++_j : --_j) {
+              _results1.push(_.values(this.grid.record(i)));
+            }
+            return _results1;
+          }.call(this);
+        }
+        GridSampler.prototype.take = function (n) {
+          return sample(this.tuples, n);
+        };
+        return GridSampler;
       }(Sampler);
       exports.Factor = Factor = function (_super) {
         __extends(Factor, _super);
@@ -305,9 +387,9 @@
           });
         };
         function Factor(arr) {
-          var arg, _i, _len;
-          for (_i = 0, _len = arr.length; _i < _len; _i++) {
-            arg = arr[_i];
+          var arg, _j, _len;
+          for (_j = 0, _len = arr.length; _j < _len; _j++) {
+            arg = arr[_j];
             this.push(arg);
           }
           this.levels = _.uniq(arr).sort();
@@ -316,16 +398,16 @@
       }(Array);
       exports.DataTable = DataTable = function () {
         DataTable.prototype.show = function () {
-          var i, _i, _ref, _results;
+          var i, _j, _ref, _results1;
           console.log('DataTable: rows: ' + this.nrow() + ' columns: ' + this.ncol());
-          _results = [];
-          for (i = _i = 0, _ref = this.nrow(); 0 <= _ref ? _i < _ref : _i > _ref; i = 0 <= _ref ? ++_i : --_i) {
-            _results.push(console.log(this.record(i)));
+          _results1 = [];
+          for (i = _j = 0, _ref = this.nrow(); 0 <= _ref ? _j < _ref : _j > _ref; i = 0 <= _ref ? ++_j : --_j) {
+            _results1.push(console.log(this.record(i)));
           }
-          return _results;
+          return _results1;
         };
         DataTable.fromRecords = function (records, union) {
-          var allkeys, key, rec, vars, _i, _j, _k, _len, _len1, _len2;
+          var allkeys, key, rec, vars, _j, _k, _l, _len, _len1, _len2;
           if (union == null) {
             union = true;
           }
@@ -334,15 +416,15 @@
           })));
           console.log(allkeys);
           vars = {};
-          for (_i = 0, _len = allkeys.length; _i < _len; _i++) {
-            key = allkeys[_i];
+          for (_j = 0, _len = allkeys.length; _j < _len; _j++) {
+            key = allkeys[_j];
             vars[key] = [];
           }
           console.log(vars);
-          for (_j = 0, _len1 = records.length; _j < _len1; _j++) {
-            rec = records[_j];
-            for (_k = 0, _len2 = allkeys.length; _k < _len2; _k++) {
-              key = allkeys[_k];
+          for (_k = 0, _len1 = records.length; _k < _len1; _k++) {
+            rec = records[_k];
+            for (_l = 0, _len2 = allkeys.length; _l < _len2; _l++) {
+              key = allkeys[_l];
               vars[key].push(rec[key] || null);
             }
           }
@@ -355,7 +437,7 @@
           return Object.seal(new DataTable(vars));
         };
         DataTable.rbind = function (tab1, tab2, union) {
-          var col1, col2, keys1, keys2, name, out, sharedKeys, _i, _len;
+          var col1, col2, keys1, keys2, name, out, sharedKeys, _j, _len;
           if (union == null) {
             union = false;
           }
@@ -364,8 +446,8 @@
           sharedKeys = union ? _.union(keys1, keys2) : _.intersection(keys1, keys2);
           console.log('shared keys', sharedKeys);
           out = {};
-          for (_i = 0, _len = sharedKeys.length; _i < _len; _i++) {
-            name = sharedKeys[_i];
+          for (_j = 0, _len = sharedKeys.length; _j < _len; _j++) {
+            name = sharedKeys[_j];
             col1 = tab1[name];
             col2 = tab2[name];
             if (!col1) {
@@ -379,20 +461,20 @@
           return new DataTable(out);
         };
         DataTable.cbind = function (tab1, tab2) {
-          var diffkeys, key, out, _i, _len;
+          var diffkeys, key, out, _j, _len;
           if (tab1.nrow() !== tab2.nrow()) {
             throw 'cbind requires arguments to have same number of rows';
           }
           out = _.cloneDeep(tab1);
           diffkeys = _.difference(_.keys(tab2), _.keys(tab1));
-          for (_i = 0, _len = diffkeys.length; _i < _len; _i++) {
-            key = diffkeys[_i];
+          for (_j = 0, _len = diffkeys.length; _j < _len; _j++) {
+            key = diffkeys[_j];
             out[key] = tab2[key];
           }
           return out;
         };
         DataTable.expand = function (vars, unique, nreps) {
-          var d, i, key, name, nargs, nm, nx, orep, out, r1, r2, r3, repfac, value, _i, _results;
+          var d, i, key, name, nargs, nm, nx, orep, out, r1, r2, r3, repfac, value, _j, _results1;
           if (vars == null) {
             vars = {};
           }
@@ -426,21 +508,21 @@
             orep = orep / nx;
             r1 = rep([repfac], nx);
             r2 = rep(function () {
-              _results = [];
-              for (var _i = 0; 0 <= nx ? _i < nx : _i > nx; 0 <= nx ? _i++ : _i--) {
-                _results.push(_i);
+              _results1 = [];
+              for (var _j = 0; 0 <= nx ? _j < nx : _j > nx; 0 <= nx ? _j++ : _j--) {
+                _results1.push(_j);
               }
-              return _results;
+              return _results1;
             }.apply(this), r1);
             r3 = rep(r2, orep);
             out[key] = function () {
-              var _j, _len, _results1;
-              _results1 = [];
-              for (_j = 0, _len = r3.length; _j < _len; _j++) {
-                i = r3[_j];
-                _results1.push(value[i]);
+              var _k, _len, _results2;
+              _results2 = [];
+              for (_k = 0, _len = r3.length; _k < _len; _k++) {
+                i = r3[_k];
+                _results2.push(value[i]);
               }
-              return _results1;
+              return _results2;
             }();
             repfac = repfac * nx;
           }
@@ -468,18 +550,18 @@
         DataTable.prototype.subset = function (key, filter) {
           var el, i, keep, name, out, val, value;
           keep = function () {
-            var _i, _len, _ref, _results;
+            var _j, _len, _ref, _results1;
             _ref = this[key];
-            _results = [];
-            for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-              val = _ref[_i];
+            _results1 = [];
+            for (_j = 0, _len = _ref.length; _j < _len; _j++) {
+              val = _ref[_j];
               if (filter(val)) {
-                _results.push(true);
+                _results1.push(true);
               } else {
-                _results.push(false);
+                _results1.push(false);
               }
             }
-            return _results;
+            return _results1;
           }.call(this);
           out = {};
           for (name in this) {
@@ -487,33 +569,33 @@
               continue;
             value = this[name];
             out[name] = function () {
-              var _i, _len, _results;
-              _results = [];
-              for (i = _i = 0, _len = value.length; _i < _len; i = ++_i) {
+              var _j, _len, _results1;
+              _results1 = [];
+              for (i = _j = 0, _len = value.length; _j < _len; i = ++_j) {
                 el = value[i];
                 if (keep[i] === true) {
-                  _results.push(el);
+                  _results1.push(el);
                 }
               }
-              return _results;
+              return _results1;
             }();
           }
           return new DataTable(out);
         };
         DataTable.prototype.whichRow = function (where) {
-          var count, i, key, nkeys, out, rec, value, _i, _ref;
+          var count, i, key, nkeys, out, rec, value, _j, _ref;
           out = [];
           nkeys = _.keys(where).length;
-          for (i = _i = 0, _ref = this.nrow(); 0 <= _ref ? _i < _ref : _i > _ref; i = 0 <= _ref ? ++_i : --_i) {
+          for (i = _j = 0, _ref = this.nrow(); 0 <= _ref ? _j < _ref : _j > _ref; i = 0 <= _ref ? ++_j : --_j) {
             rec = this.record(i);
             count = asArray(function () {
-              var _results;
-              _results = [];
+              var _results1;
+              _results1 = [];
               for (key in where) {
                 value = where[key];
-                _results.push(rec[key] === value);
+                _results1.push(rec[key] === value);
               }
-              return _results;
+              return _results1;
             }());
             count = _.map(count, function (x) {
               if (x) {
@@ -532,19 +614,19 @@
           return out;
         };
         DataTable.prototype.select = function (where) {
-          var count, i, key, nkeys, out, rec, value, _i, _ref;
+          var count, i, key, nkeys, out, rec, value, _j, _ref;
           out = [];
           nkeys = _.keys(where).length;
-          for (i = _i = 0, _ref = this.nrow(); 0 <= _ref ? _i < _ref : _i > _ref; i = 0 <= _ref ? ++_i : --_i) {
+          for (i = _j = 0, _ref = this.nrow(); 0 <= _ref ? _j < _ref : _j > _ref; i = 0 <= _ref ? ++_j : --_j) {
             rec = this.record(i);
             count = asArray(function () {
-              var _results;
-              _results = [];
+              var _results1;
+              _results1 = [];
               for (key in where) {
                 value = where[key];
-                _results.push(rec[key] === value);
+                _results1.push(rec[key] === value);
               }
-              return _results;
+              return _results1;
             }());
             count = _.map(count, function (x) {
               if (x) {
@@ -565,15 +647,15 @@
         DataTable.prototype.nrow = function () {
           var lens, name, value;
           lens = function () {
-            var _results;
-            _results = [];
+            var _results1;
+            _results1 = [];
             for (name in this) {
               if (!__hasProp.call(this, name))
                 continue;
               value = this[name];
-              _results.push(value.length);
+              _results1.push(value.length);
             }
-            return _results;
+            return _results1;
           }.call(this);
           return _.max(lens);
         };
@@ -615,12 +697,12 @@
           return this;
         };
         DataTable.prototype.bindrow = function (rows) {
-          var key, record, value, _i, _len;
+          var key, record, value, _j, _len;
           if (!_.isArray(rows)) {
             rows = [rows];
           }
-          for (_i = 0, _len = rows.length; _i < _len; _i++) {
-            record = rows[_i];
+          for (_j = 0, _len = rows.length; _j < _len; _j++) {
+            record = rows[_j];
             console.log(record);
             for (key in record) {
               if (!__hasProp.call(record, key))
@@ -640,11 +722,11 @@
       exports.StimFactory = StimFactory = function () {
         function StimFactory() {
         }
-        StimFactory.prototype.makeStimulus = function (name, params) {
+        StimFactory.prototype.makeStimulus = function (name, params, context) {
         };
-        StimFactory.prototype.makeResponse = function (name, params) {
+        StimFactory.prototype.makeResponse = function (name, params, context) {
         };
-        StimFactory.prototype.makeEvent = function (stim, response) {
+        StimFactory.prototype.makeEvent = function (stim, response, context) {
         };
         return StimFactory;
       }();
@@ -654,19 +736,19 @@
           _ref = MockStimFactory.__super__.constructor.apply(this, arguments);
           return _ref;
         }
-        MockStimFactory.prototype.makeStimulus = function (name, params) {
+        MockStimFactory.prototype.makeStimulus = function (name, params, context) {
           var ret;
           ret = {};
           ret[name] = params;
           return ret;
         };
-        MockStimFactory.prototype.makeResponse = function (name, params) {
+        MockStimFactory.prototype.makeResponse = function (name, params, context) {
           var ret;
           ret = {};
           ret[name] = params;
           return ret;
         };
-        MockStimFactory.prototype.makeEvent = function (stim, response) {
+        MockStimFactory.prototype.makeEvent = function (stim, response, context) {
           return [
             stim,
             response
@@ -687,6 +769,7 @@
           var _this = this;
           console.log('starting event', this.stimulus);
           if (!this.stimulus.overlay) {
+            console.log('clearing event content');
             context.clearContent();
           }
           console.log('rendering event');
@@ -713,7 +796,7 @@
           return this.events.push(event);
         };
         Trial.prototype.start = function (context) {
-          var farray, fun, result, _i, _len, _this = this;
+          var farray, fun, result, _j, _len, _this = this;
           console.log('starting trial');
           context.clearBackground();
           if (this.background) {
@@ -726,21 +809,21 @@
             };
           });
           result = Q.resolve(0);
-          for (_i = 0, _len = farray.length; _i < _len; _i++) {
-            fun = farray[_i];
+          for (_j = 0, _len = farray.length; _j < _len; _j++) {
+            fun = farray[_j];
             result = result.then(fun);
           }
           return result;
         };
         Trial.prototype.stop = function () {
-          var ev, _i, _len, _ref1, _results;
+          var ev, _j, _len, _ref1, _results1;
           _ref1 = this.events;
-          _results = [];
-          for (_i = 0, _len = _ref1.length; _i < _len; _i++) {
-            ev = _ref1[_i];
-            _results.push(ev.stop());
+          _results1 = [];
+          for (_j = 0, _len = _ref1.length; _j < _len; _j++) {
+            ev = _ref1[_j];
+            _results1.push(ev.stop());
           }
-          return _results;
+          return _results1;
         };
         return Trial;
       }();
@@ -758,7 +841,7 @@
           return console.log(this.eventLog);
         };
         ExperimentContext.prototype.start = function (trialList) {
-          var fun, funList, result, _i, _len, _results, _this = this;
+          var fun, funList, result, _j, _len, _this = this;
           funList = _.map(trialList, function (trial) {
             return function () {
               _this.trialNumber += 1;
@@ -767,13 +850,12 @@
             };
           });
           result = Q.resolve(0);
-          _results = [];
-          for (_i = 0, _len = funList.length; _i < _len; _i++) {
-            fun = funList[_i];
+          for (_j = 0, _len = funList.length; _j < _len; _j++) {
+            fun = funList[_j];
             console.log('building trial list');
-            _results.push(result = result.then(fun));
+            result = result.then(fun);
           }
-          return _results;
+          return result;
         };
         ExperimentContext.prototype.clearContent = function () {
         };
@@ -794,54 +876,68 @@
           this.trialList = trialList;
           this.display = display;
           this.stimFactory = stimFactory != null ? stimFactory : new MockStimFactory;
+          this.trialBuilder = this.display.Trial;
         }
-        Presenter.prototype.buildStimulus = function (event) {
+        Presenter.prototype.buildStimulus = function (event, context) {
           var params, stimType;
           stimType = _.keys(event)[0];
           params = _.values(event)[0];
-          return this.stimFactory.makeStimulus(stimType, params);
+          console.log('making stim', stimType);
+          console.log('params', params);
+          return this.stimFactory.makeStimulus(stimType, params, context);
         };
-        Presenter.prototype.buildEvent = function (event) {
+        Presenter.prototype.buildEvent = function (event, context) {
           var params, responseType;
           responseType = _.keys(event)[0];
           params = _.values(event)[0];
-          return this.stimFactory.makeResponse(responseType, params);
+          return this.stimFactory.makeResponse(responseType, params, context);
         };
-        Presenter.prototype.buildTrial = function (eventSpec, record) {
+        Presenter.prototype.buildTrial = function (eventSpec, record, context) {
           var events, key, response, responseSpec, stim, stimSpec, value;
           events = function () {
-            var _results;
-            _results = [];
+            var _results1;
+            _results1 = [];
             for (key in eventSpec) {
               value = eventSpec[key];
               stimSpec = _.omit(value, 'Next');
               responseSpec = _.pick(value, 'Next');
-              stim = this.buildStimulus(stimSpec);
-              response = this.buildEvent(responseSpec.Next);
-              _results.push(this.stimFactory.makeEvent(stim, response));
+              stim = this.buildStimulus(stimSpec, context);
+              response = this.buildEvent(responseSpec.Next, context);
+              _results1.push(this.stimFactory.makeEvent(stim, response, context));
             }
-            return _results;
+            return _results1;
           }.call(this);
-          return new Trial(events, record);
+          return new Trial(events, record, new Psy.Background([], 'gray'));
         };
         Presenter.prototype.start = function (context) {
-          var block, record, trialNum, _i, _len, _ref1, _results;
-          _ref1 = this.trialList.blocks;
-          _results = [];
-          for (_i = 0, _len = _ref1.length; _i < _len; _i++) {
-            block = _ref1[_i];
-            _results.push(function () {
-              var _j, _ref2, _results1;
-              _results1 = [];
-              for (trialNum = _j = 0, _ref2 = block.length; 0 <= _ref2 ? _j < _ref2 : _j > _ref2; trialNum = 0 <= _ref2 ? ++_j : --_j) {
-                record = _.clone(block[trialNum]);
-                record.$trialNumber = trialNum;
-                _results1.push(console.log(record));
-              }
-              return _results1;
-            }());
-          }
-          return _results;
+          var block, record, tlist, trial, trialNum, trialSpec;
+          tlist = function () {
+            var _j, _len, _ref1, _results1;
+            _ref1 = this.trialList.blocks;
+            _results1 = [];
+            for (_j = 0, _len = _ref1.length; _j < _len; _j++) {
+              block = _ref1[_j];
+              _results1.push(function () {
+                var _k, _ref2, _results2;
+                _results2 = [];
+                for (trialNum = _k = 0, _ref2 = block.length; 0 <= _ref2 ? _k < _ref2 : _k > _ref2; trialNum = 0 <= _ref2 ? ++_k : --_k) {
+                  console.log('tnum', trialNum);
+                  record = _.clone(block[trialNum]);
+                  record.$trialNumber = trialNum;
+                  console.log('record', record);
+                  trialSpec = this.trialBuilder(record);
+                  console.log('tspec', trialSpec);
+                  trial = this.buildTrial(trialSpec.Events, record, context);
+                  console.log('trial', trial);
+                  _results2.push(trial);
+                }
+                return _results2;
+              }.call(this));
+            }
+            return _results1;
+          }.call(this);
+          console.log(tlist[0]);
+          return context.start(tlist[0]);
         };
         return Presenter;
       }();
@@ -853,32 +949,32 @@
           this.display = this.designSpec.Display;
           this.trialGenerator = this.display.Trial;
         }
-        Experiment.prototype.buildStimulus = function (event) {
+        Experiment.prototype.buildStimulus = function (event, context) {
           var params, stimType;
           stimType = _.keys(event)[0];
           params = _.values(event)[0];
-          return this.stimFactory.makeStimulus(stimType, params);
+          return this.stimFactory.makeStimulus(stimType, params, context);
         };
-        Experiment.prototype.buildEvent = function (event) {
+        Experiment.prototype.buildEvent = function (event, context) {
           var params, responseType;
           responseType = _.keys(event)[0];
           params = _.values(event)[0];
-          return this.stimFactory.makeResponse(responseType, params);
+          return this.stimFactory.makeResponse(responseType, params, context);
         };
-        Experiment.prototype.buildTrial = function (eventSpec, record) {
+        Experiment.prototype.buildTrial = function (eventSpec, record, context) {
           var events, key, response, responseSpec, stim, stimSpec, value;
           events = function () {
-            var _results;
-            _results = [];
+            var _results1;
+            _results1 = [];
             for (key in eventSpec) {
               value = eventSpec[key];
               stimSpec = _.omit(value, 'Next');
               responseSpec = _.pick(value, 'Next');
               stim = this.buildStimulus(stimSpec);
               response = this.buildEvent(responseSpec.Next);
-              _results.push(this.stimFactory.makeEvent(stim, response));
+              _results1.push(this.stimFactory.makeEvent(stim, response));
             }
-            return _results;
+            return _results1;
           }.call(this);
           return new Trial(events, record);
         };
@@ -887,15 +983,15 @@
           trials = this.design.fullDesign;
           console.log(trials.nrow());
           trialList = function () {
-            var _i, _ref1, _results;
-            _results = [];
-            for (i = _i = 0, _ref1 = trials.nrow(); 0 <= _ref1 ? _i < _ref1 : _i > _ref1; i = 0 <= _ref1 ? ++_i : --_i) {
+            var _j, _ref1, _results1;
+            _results1 = [];
+            for (i = _j = 0, _ref1 = trials.nrow(); 0 <= _ref1 ? _j < _ref1 : _j > _ref1; i = 0 <= _ref1 ? ++_j : --_j) {
               record = trials.record(i);
               record.$trialNumber = i;
               trialSpec = this.trialGenerator(record);
-              _results.push(this.buildTrial(trialSpec, record));
+              _results1.push(this.buildTrial(trialSpec, record, context));
             }
-            return _results;
+            return _results1;
           }.call(this);
           return context.start(trialList);
         };
@@ -907,35 +1003,35 @@
           var ctable, i, indices, itemSets, j, keySet, levs, record;
           ctable = this.factorSpec.conditionTable;
           keySet = function () {
-            var _i, _ref1, _results;
-            _results = [];
-            for (i = _i = 0, _ref1 = ctable.nrow(); 0 <= _ref1 ? _i < _ref1 : _i > _ref1; i = 0 <= _ref1 ? ++_i : --_i) {
+            var _j, _ref1, _results1;
+            _results1 = [];
+            for (i = _j = 0, _ref1 = ctable.nrow(); 0 <= _ref1 ? _j < _ref1 : _j > _ref1; i = 0 <= _ref1 ? ++_j : --_j) {
               record = ctable.record(i);
               levs = _.values(record);
-              _results.push(_.reduce(levs, function (a, b) {
+              _results1.push(_.reduce(levs, function (a, b) {
                 return a + ':' + b;
               }));
             }
-            return _results;
+            return _results1;
           }();
           console.log(keySet);
           itemSets = function () {
-            var _i, _ref1, _results;
-            _results = [];
-            for (i = _i = 0, _ref1 = ctable.nrow(); 0 <= _ref1 ? _i < _ref1 : _i > _ref1; i = 0 <= _ref1 ? ++_i : --_i) {
+            var _j, _ref1, _results1;
+            _results1 = [];
+            for (i = _j = 0, _ref1 = ctable.nrow(); 0 <= _ref1 ? _j < _ref1 : _j > _ref1; i = 0 <= _ref1 ? ++_j : --_j) {
               record = ctable.record(i);
               indices = this.itemMap.whichRow(record);
-              _results.push(function () {
-                var _j, _len, _results1;
-                _results1 = [];
-                for (_j = 0, _len = indices.length; _j < _len; _j++) {
-                  j = indices[_j];
-                  _results1.push(this.items[j]);
+              _results1.push(function () {
+                var _k, _len, _results2;
+                _results2 = [];
+                for (_k = 0, _len = indices.length; _k < _len; _k++) {
+                  j = indices[_k];
+                  _results2.push(this.items[j]);
                 }
-                return _results1;
+                return _results2;
               }.call(this));
             }
-            return _results;
+            return _results1;
           }.call(this);
           console.log(itemSets);
           return _.zipObject(keySet, itemSets);
@@ -960,13 +1056,13 @@
           return _.flatten(this.takeCondition(keys));
         };
         ConditionalSampler.prototype.takeCondition = function (keys) {
-          var key, _i, _len, _results;
-          _results = [];
-          for (_i = 0, _len = keys.length; _i < _len; _i++) {
-            key = keys[_i];
-            _results.push(this.samplerSet[key].take(1));
+          var key, _j, _len, _results1;
+          _results1 = [];
+          for (_j = 0, _len = keys.length; _j < _len; _j++) {
+            key = keys[_j];
+            _results1.push(this.samplerSet[key].take(1));
           }
-          return _results;
+          return _results1;
         };
         return ConditionalSampler;
       }(Sampler);
@@ -1003,27 +1099,27 @@
           ]);
         };
         FactorSpec.prototype.expand = function (nblocks, reps) {
-          var blocks, concatBlocks, i, prop, vset, _i, _results;
+          var blocks, concatBlocks, i, prop, vset, _j, _results1;
           prop = {};
           prop[this.name] = this.levels;
           vset = new DataTable(prop);
           blocks = function () {
-            var _i, _results;
-            _results = [];
-            for (i = _i = 1; 1 <= nblocks ? _i <= nblocks : _i >= nblocks; i = 1 <= nblocks ? ++_i : --_i) {
-              _results.push(vset.replicate(reps));
+            var _j, _results1;
+            _results1 = [];
+            for (i = _j = 1; 1 <= nblocks ? _j <= nblocks : _j >= nblocks; i = 1 <= nblocks ? ++_j : --_j) {
+              _results1.push(vset.replicate(reps));
             }
-            return _results;
+            return _results1;
           }();
           concatBlocks = _.reduce(blocks, function (sum, nex) {
             return DataTable.rbind(sum, nex);
           });
           concatBlocks.bindcol('$Block', rep(function () {
-            _results = [];
-            for (var _i = 1; 1 <= nblocks ? _i <= nblocks : _i >= nblocks; 1 <= nblocks ? _i++ : _i--) {
-              _results.push(_i);
+            _results1 = [];
+            for (var _j = 1; 1 <= nblocks ? _j <= nblocks : _j >= nblocks; 1 <= nblocks ? _j++ : _j--) {
+              _results1.push(_j);
             }
-            return _results;
+            return _results1;
           }.apply(this), rep(reps * vset.nrow(), nblocks)));
           return concatBlocks;
         };
@@ -1035,27 +1131,27 @@
           var fac;
           this.parents = parents;
           this.parentNames = function () {
-            var _i, _len, _ref1, _results;
+            var _j, _len, _ref1, _results1;
             _ref1 = this.parents;
-            _results = [];
-            for (_i = 0, _len = _ref1.length; _i < _len; _i++) {
-              fac = _ref1[_i];
-              _results.push(fac.name);
+            _results1 = [];
+            for (_j = 0, _len = _ref1.length; _j < _len; _j++) {
+              fac = _ref1[_j];
+              _results1.push(fac.name);
             }
-            return _results;
+            return _results1;
           }.call(this);
           this.name = _.reduce(this.parentNames, function (n, n1) {
             return n + ':' + n1;
           });
           this.levels = function () {
-            var _i, _len, _ref1, _results;
+            var _j, _len, _ref1, _results1;
             _ref1 = this.parents;
-            _results = [];
-            for (_i = 0, _len = _ref1.length; _i < _len; _i++) {
-              fac = _ref1[_i];
-              _results.push(fac.levels);
+            _results1 = [];
+            for (_j = 0, _len = _ref1.length; _j < _len; _j++) {
+              fac = _ref1[_j];
+              _results1.push(fac.levels);
             }
-            return _results;
+            return _results1;
           }.call(this);
           this.factorSet = _.zipObject(this.parentNames, this.levels);
           this.table = DataTable.expand(this.factorSet);
@@ -1064,45 +1160,45 @@
           return this.parentNames;
         };
         CellTable.prototype.conditions = function () {
-          var i, rec, _i, _ref1, _results;
-          _results = [];
-          for (i = _i = 0, _ref1 = this.table.nrow(); 0 <= _ref1 ? _i < _ref1 : _i > _ref1; i = 0 <= _ref1 ? ++_i : --_i) {
+          var i, rec, _j, _ref1, _results1;
+          _results1 = [];
+          for (i = _j = 0, _ref1 = this.table.nrow(); 0 <= _ref1 ? _j < _ref1 : _j > _ref1; i = 0 <= _ref1 ? ++_j : --_j) {
             rec = this.table.record(i);
-            _results.push(_.reduce(rec, function (n, n1) {
+            _results1.push(_.reduce(rec, function (n, n1) {
               return n + ':' + n1;
             }));
           }
-          return _results;
+          return _results1;
         };
         CellTable.prototype.expand = function (nblocks, reps) {
           var blocks, i;
           return blocks = function () {
-            var _i, _results;
-            _results = [];
-            for (i = _i = 1; 1 <= nblocks ? _i <= nblocks : _i >= nblocks; i = 1 <= nblocks ? ++_i : --_i) {
-              _results.push(this.table.replicate(reps));
+            var _j, _results1;
+            _results1 = [];
+            for (i = _j = 1; 1 <= nblocks ? _j <= nblocks : _j >= nblocks; i = 1 <= nblocks ? ++_j : --_j) {
+              _results1.push(this.table.replicate(reps));
             }
-            return _results;
+            return _results1;
           }.call(this);
         };
         return CellTable;
       }(VarSpec);
       exports.TaskNode = TaskNode = function () {
         function TaskNode(varSpecs, crossedSet) {
-          var i, vname, _i, _j, _k, _len, _len1, _ref1, _ref2, _ref3;
+          var i, vname, _j, _k, _l, _len, _len1, _ref1, _ref2, _ref3;
           this.varSpecs = varSpecs;
           this.crossedSet = crossedSet != null ? crossedSet : [];
           this.factorNames = _.map(this.varSpecs, function (x) {
             return x.names();
           });
           this.varmap = {};
-          for (i = _i = 0, _ref1 = this.factorNames.length; 0 <= _ref1 ? _i < _ref1 : _i > _ref1; i = 0 <= _ref1 ? ++_i : --_i) {
+          for (i = _j = 0, _ref1 = this.factorNames.length; 0 <= _ref1 ? _j < _ref1 : _j > _ref1; i = 0 <= _ref1 ? ++_j : --_j) {
             this.varmap[this.factorNames[i]] = this.varSpecs[i];
           }
           if (this.crossedSet.length > 0) {
             _ref2 = this.crossedSet;
-            for (_j = 0, _len = _ref2.length; _j < _len; _j++) {
-              vname = _ref2[_j];
+            for (_k = 0, _len = _ref2.length; _k < _len; _k++) {
+              vname = _ref2[_k];
               this.crossedVars = this.varmap[vname];
             }
             this.crossedSpec = new CrossedFactorSpec(this.crossedVars);
@@ -1112,8 +1208,8 @@
           }
           this.uncrossedVars = _.difference(this.factorNames, this.crossedSet);
           _ref3 = this.uncrossedVars;
-          for (_k = 0, _len1 = _ref3.length; _k < _len1; _k++) {
-            vname = _ref3[_k];
+          for (_l = 0, _len1 = _ref3.length; _l < _len1; _l++) {
+            vname = _ref3[_l];
             this.uncrossedSpec = this.varmap[vname];
           }
           ({
@@ -1142,24 +1238,24 @@
         FactorSetNode.build = function (spec) {
           var fnodes, key, value;
           fnodes = function () {
-            var _results;
-            _results = [];
+            var _results1;
+            _results1 = [];
             for (key in spec) {
               value = spec[key];
-              _results.push(FactorNode.build(key, value));
+              _results1.push(FactorNode.build(key, value));
             }
-            return _results;
+            return _results1;
           }();
           return new FactorSetNode(fnodes);
         };
         function FactorSetNode(factors) {
-          var i, _i, _ref1;
+          var i, _j, _ref1;
           this.factors = factors;
           this.factorNames = _.map(this.factors, function (x) {
             return x.name;
           });
           this.varmap = {};
-          for (i = _i = 0, _ref1 = this.factorNames.length; 0 <= _ref1 ? _i < _ref1 : _i > _ref1; i = 0 <= _ref1 ? ++_i : --_i) {
+          for (i = _j = 0, _ref1 = this.factorNames.length; 0 <= _ref1 ? _j < _ref1 : _j > _ref1; i = 0 <= _ref1 ? ++_j : --_j) {
             this.varmap[this.factorNames[i]] = this.factors[i];
           }
           this.cellTable = new CellTable(this.factors);
@@ -1175,7 +1271,7 @@
           return this.cellTable.expand(nblocks, nreps);
         };
         FactorSetNode.prototype.trialList = function (nblocks, nreps) {
-          var blk, blocks, i, j, tlist, _i, _j, _ref1, _ref2;
+          var blk, blocks, i, j, tlist, _j, _k, _ref1, _ref2;
           if (nblocks == null) {
             nblocks = 1;
           }
@@ -1184,9 +1280,9 @@
           }
           blocks = this.expand(nblocks, nreps);
           tlist = new TrialList(nblocks);
-          for (i = _i = 0, _ref1 = blocks.length; 0 <= _ref1 ? _i < _ref1 : _i > _ref1; i = 0 <= _ref1 ? ++_i : --_i) {
+          for (i = _j = 0, _ref1 = blocks.length; 0 <= _ref1 ? _j < _ref1 : _j > _ref1; i = 0 <= _ref1 ? ++_j : --_j) {
             blk = blocks[i];
-            for (j = _j = 0, _ref2 = blk.nrow(); 0 <= _ref2 ? _j < _ref2 : _j > _ref2; j = 0 <= _ref2 ? ++_j : --_j) {
+            for (j = _k = 0, _ref2 = blk.nrow(); 0 <= _ref2 ? _k < _ref2 : _k > _ref2; j = 0 <= _ref2 ? ++_k : --_k) {
               tlist.add(i, blk.record(j));
             }
           }
@@ -1241,9 +1337,9 @@
       }();
       exports.TrialList = TrialList = function () {
         function TrialList(nblocks) {
-          var i, _i;
+          var i, _j;
           this.blocks = [];
-          for (i = _i = 0; 0 <= nblocks ? _i < nblocks : _i > nblocks; i = 0 <= nblocks ? ++_i : --_i) {
+          for (i = _j = 0; 0 <= nblocks ? _j < nblocks : _j > nblocks; i = 0 <= nblocks ? ++_j : --_j) {
             this.blocks.push([]);
           }
         }
@@ -1340,36 +1436,36 @@
           var attrnames, conditionTable, i, indices, itemSets, j, keySet, levs, record, values;
           attrnames = crossedVariables.colnames();
           keySet = function () {
-            var _i, _ref1, _results;
-            _results = [];
-            for (i = _i = 0, _ref1 = crossedVariables.nrow(); 0 <= _ref1 ? _i < _ref1 : _i > _ref1; i = 0 <= _ref1 ? ++_i : --_i) {
+            var _j, _ref1, _results1;
+            _results1 = [];
+            for (i = _j = 0, _ref1 = crossedVariables.nrow(); 0 <= _ref1 ? _j < _ref1 : _j > _ref1; i = 0 <= _ref1 ? ++_j : --_j) {
               record = crossedVariables.record(i);
               levs = _.values(record);
-              _results.push(_.reduce(levs, function (a, b) {
+              _results1.push(_.reduce(levs, function (a, b) {
                 return a + ':' + b;
               }));
             }
-            return _results;
+            return _results1;
           }();
           values = itemSpec['values'];
           conditionTable = new DataTable(_.pick(itemSpec, attrnames));
           itemSets = function () {
-            var _i, _ref1, _results;
-            _results = [];
-            for (i = _i = 0, _ref1 = crossedVariables.nrow(); 0 <= _ref1 ? _i < _ref1 : _i > _ref1; i = 0 <= _ref1 ? ++_i : --_i) {
+            var _j, _ref1, _results1;
+            _results1 = [];
+            for (i = _j = 0, _ref1 = crossedVariables.nrow(); 0 <= _ref1 ? _j < _ref1 : _j > _ref1; i = 0 <= _ref1 ? ++_j : --_j) {
               record = crossedVariables.record(i);
               indices = conditionTable.whichRow(record);
-              _results.push(function () {
-                var _j, _len, _results1;
-                _results1 = [];
-                for (_j = 0, _len = indices.length; _j < _len; _j++) {
-                  j = indices[_j];
-                  _results1.push(values[j]);
+              _results1.push(function () {
+                var _k, _len, _results2;
+                _results2 = [];
+                for (_k = 0, _len = indices.length; _k < _len; _k++) {
+                  j = indices[_k];
+                  _results2.push(values[j]);
                 }
-                return _results1;
+                return _results2;
               }());
             }
-            return _results;
+            return _results1;
           }();
           return _.zipObject(keySet, itemSets);
         };
@@ -1399,14 +1495,14 @@
           crossedItemName = _.keys(crossedItems)[0];
           console.log('names:', crossedSpec.names());
           crossedItemMap = function () {
-            var _i, _len, _ref1, _results;
+            var _j, _len, _ref1, _results1;
             _ref1 = crossedSpec.names();
-            _results = [];
-            for (_i = 0, _len = _ref1.length; _i < _len; _i++) {
-              key = _ref1[_i];
-              _results.push(crossedItems[crossedItemName][key]);
+            _results1 = [];
+            for (_j = 0, _len = _ref1.length; _j < _len; _j++) {
+              key = _ref1[_j];
+              _results1.push(crossedItems[crossedItemName][key]);
             }
-            return _results;
+            return _results1;
           }();
           crossedItemMap = _.zipObject(_.keys(this.crossed), crossedItemMap);
           console.log('item map: ', crossedItemMap);
@@ -1415,13 +1511,13 @@
         ExpDesign.prototype.makeCrossedSpec = function (crossed, nblocks, nreps) {
           var factors, key, val;
           factors = function () {
-            var _results;
-            _results = [];
+            var _results1;
+            _results1 = [];
             for (key in crossed) {
               val = crossed[key];
-              _results.push(new FactorSpec(nblocks, nreps, key, val.levels));
+              _results1.push(new FactorSpec(nblocks, nreps, key, val.levels));
             }
-            return _results;
+            return _results1;
           }();
           return crossed = new CrossedFactorSpec(nblocks, nreps, factors);
         };
@@ -1444,6 +1540,16 @@
         }
         return ExpDesign;
       }();
+      sam = new GridSampler([
+        1,
+        2,
+        3
+      ], [
+        1,
+        2,
+        3
+      ]);
+      console.log('grid', sam.take(5));
       des = {
         Design: {
           Blocks: [
@@ -4323,12 +4429,15 @@
         };
         GridLayout.prototype.computePosition = function (dim, constraints) {
           var cell;
+          console.log('grid layout computing position');
           if (dim[0] !== this.bounds.width && dim[1] !== this.bounds.height) {
             this.bounds.width = dim[0];
             this.bounds.height = dim[1];
             this.cells = this.computeCells();
           }
+          console.log('constraints', constraints);
           cell = this.cells[constraints[0]][constraints[1]];
+          console.log('grid cell is', cell);
           return [
             cell.x + cell.width / 2,
             cell.y + cell.height / 2
@@ -4340,16 +4449,20 @@
         function Stimulus() {
         }
         Stimulus.prototype.spec = {};
+        Stimulus.overlay = false;
         Stimulus.prototype.layout = new AbsoluteLayout;
-        Stimulus.prototype.overlay = false;
         Stimulus.prototype.stopped = false;
         Stimulus.prototype.computeCoordinates = function (context, position) {
+          var cpos;
+          console.log('computing coordinates');
           if (position) {
-            console.log(position);
-            return this.layout.computePosition([
+            console.log('position', position);
+            cpos = this.layout.computePosition([
               context.width(),
               context.height()
             ], position);
+            console.log('cpos', cpos);
+            return cpos;
           } else if (this.spec.x && this.spec.y) {
             return [
               this.spec.x,
@@ -4849,7 +4962,6 @@
         function Group(stims, layout) {
           var stim, _i, _len, _ref2;
           this.stims = stims;
-          this.overlay = true;
           if (layout) {
             this.layout = layout;
             _ref2 = this.stims;
@@ -4861,10 +4973,12 @@
         }
         Group.prototype.render = function (context, layer) {
           var stim, _i, _len, _ref2, _results;
+          console.log('rendering group');
           _ref2 = this.stims;
           _results = [];
           for (_i = 0, _len = _ref2.length; _i < _len; _i++) {
             stim = _ref2[_i];
+            console.log('rendering stim of group', stim);
             _results.push(stim.render(context, layer));
           }
           return _results;
@@ -5077,7 +5191,9 @@
         }
         Rectangle.prototype.render = function (context, layer) {
           var coords, rect;
+          console.log('rendering rectangle');
           coords = this.computeCoordinates(context, this.spec.position);
+          console.log('position is', coords);
           rect = new Kinetic.Rect({
             x: coords[0],
             y: coords[1],
@@ -5087,6 +5203,7 @@
             stroke: this.spec.stroke,
             strokeWidth: this.spec.strokeWidth
           });
+          console.log('adding rect to layer', rect);
           return layer.add(rect);
         };
         return Rectangle;
@@ -5520,17 +5637,55 @@
           _ref2 = KineticStimFactory.__super__.constructor.apply(this, arguments);
           return _ref2;
         }
-        KineticStimFactory.prototype.makeStimulus = function (name, params) {
+        KineticStimFactory.prototype.makeLayout = function (name, params, context) {
+          switch (name) {
+          case 'Grid':
+            console.log('Grid params', params);
+            return new GridLayout(params[0], params[1], {
+              x: 0,
+              y: 0,
+              width: context.width(),
+              height: context.height()
+            });
+          }
+        };
+        KineticStimFactory.prototype.makeStimulus = function (name, params, context) {
+          var callee, i, layoutName, layoutParams, names, props, stims;
+          callee = arguments.callee;
           switch (name) {
           case 'FixationCross':
             return new FixationCross(params);
+          case 'Clear':
+            return new Clear(params);
+          case 'Rectangle':
+            console.log('when Rectangle', params);
+            return new Rectangle(params);
           case 'Text':
             return new Text(params);
+          case 'Group':
+            names = _.map(params.stims, function (stim) {
+              return _.keys(stim)[0];
+            });
+            props = _.map(params.stims, function (stim) {
+              return _.values(stim)[0];
+            });
+            stims = function () {
+              var _i, _ref3, _results;
+              _results = [];
+              for (i = _i = 0, _ref3 = names.length; 0 <= _ref3 ? _i < _ref3 : _i > _ref3; i = 0 <= _ref3 ? ++_i : --_i) {
+                _results.push(callee(names[i], props[i]));
+              }
+              return _results;
+            }();
+            console.log('Group stims', stims);
+            layoutName = _.keys(params.layout)[0];
+            layoutParams = _.values(params.layout)[0];
+            return new Group(stims, this.makeLayout(layoutName, layoutParams, context));
           default:
             throw 'No Stimulus type of name ' + name;
           }
         };
-        KineticStimFactory.prototype.makeResponse = function (name, params) {
+        KineticStimFactory.prototype.makeResponse = function (name, params, context) {
           switch (name) {
           case 'KeyPressed':
             return new KeypressResponse(params);

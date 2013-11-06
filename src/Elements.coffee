@@ -110,11 +110,14 @@ class GridLayout extends Layout
   #cellPosition: (dim, constraints) ->
 
   computePosition: (dim, constraints) ->
+    console.log("grid layout computing position")
     if dim[0] != @bounds.width and dim[1] != @bounds.height
       @bounds.width = dim[0]
       @bounds.height = dim[1]
       @cells = @computeCells()
+    console.log("constraints", constraints)
     cell = @cells[constraints[0]][constraints[1]]
+    console.log("grid cell is", cell)
     [cell.x + cell.width/2, cell.y + cell.height/2]
 
 
@@ -124,16 +127,19 @@ class Stimulus
 
   spec: {}
 
-  layout: new AbsoluteLayout()
+  @overlay = false
 
-  overlay: false
+  layout: new AbsoluteLayout()
 
   stopped: false
 
   computeCoordinates: (context, position) ->
+    console.log("computing coordinates")
     if position
-      console.log(position)
-      @layout.computePosition([context.width(), context.height()], position)
+      console.log("position", position)
+      cpos = @layout.computePosition([context.width(), context.height()], position)
+      console.log("cpos", cpos)
+      cpos
     else if @spec.x and @spec.y
       [@spec.x, @spec.y]
     else [0,0]
@@ -501,15 +507,18 @@ exports.Group =
 class Group extends Stimulus
 
   constructor: (@stims, layout) ->
-    @overlay = true
+    #@overlay = true
     if layout
       @layout = layout
       for stim in @stims
         stim.layout = layout
+        #stim.overlay=true
 
 
   render: (context, layer) ->
+    console.log("rendering group")
     for stim in @stims
+      console.log("rendering stim of group", stim)
       stim.render(context, layer)
 
 # VerticalGroup lays out stimuli from top to bottom
@@ -651,8 +660,11 @@ class Rectangle extends Stimulus
       @layout = @spec.layout
 
   render: (context, layer) ->
+    console.log("rendering rectangle")
     coords = @computeCoordinates(context, @spec.position)
+    console.log("position is", coords)
     rect = new Kinetic.Rect({ x: coords[0], y: coords[1], width: @spec.width, height: @spec.height, fill: @spec.fill, stroke: @spec.stroke, strokeWidth: @spec.strokeWidth })
+    console.log("adding rect to layer", rect)
     layer.add(rect)
 
 
@@ -935,12 +947,37 @@ class KineticContext extends Psy.ExperimentContext
 
 exports.KineticStimFactory =
 class KineticStimFactory extends Psy.StimFactory
-  makeStimulus: (name, params) ->
+
+
+  makeLayout: (name, params, context) ->
+    switch name
+      when "Grid"
+        console.log("Grid params", params)
+        new GridLayout(params[0], params[1], {x: 0, y: 0, width: context.width(), height: context.height()})
+
+  makeStimulus: (name, params, context) ->
+
+    callee = arguments.callee
+
     switch name
       when "FixationCross" then new FixationCross(params)
+      when "Clear" then new Clear(params)
+      when "Rectangle"
+        console.log("when Rectangle", params)
+        new Rectangle(params)
       when "Text" then new Text(params)
+      when "Group"
+        names = _.map(params.stims, (stim) -> _.keys(stim)[0])
+        props = _.map(params.stims, (stim) -> _.values(stim)[0])
+        stims = for i in [0...names.length]
+          callee(names[i], props[i])
+        console.log("Group stims", stims)
+        layoutName = _.keys(params.layout)[0]
+        layoutParams = _.values(params.layout)[0]
+
+        new Group(stims, @makeLayout(layoutName, layoutParams, context))
       else throw "No Stimulus type of name #{name}"
-  makeResponse: (name, params) ->
+  makeResponse: (name, params, context) ->
     switch name
       when "KeyPressed" then new KeypressResponse(params)
       when "Timeout" then new Timeout(params)

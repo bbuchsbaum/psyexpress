@@ -151,12 +151,15 @@
 
     GridLayout.prototype.computePosition = function(dim, constraints) {
       var cell;
+      console.log("grid layout computing position");
       if (dim[0] !== this.bounds.width && dim[1] !== this.bounds.height) {
         this.bounds.width = dim[0];
         this.bounds.height = dim[1];
         this.cells = this.computeCells();
       }
+      console.log("constraints", constraints);
       cell = this.cells[constraints[0]][constraints[1]];
+      console.log("grid cell is", cell);
       return [cell.x + cell.width / 2, cell.y + cell.height / 2];
     };
 
@@ -169,16 +172,20 @@
 
     Stimulus.prototype.spec = {};
 
-    Stimulus.prototype.layout = new AbsoluteLayout();
+    Stimulus.overlay = false;
 
-    Stimulus.prototype.overlay = false;
+    Stimulus.prototype.layout = new AbsoluteLayout();
 
     Stimulus.prototype.stopped = false;
 
     Stimulus.prototype.computeCoordinates = function(context, position) {
+      var cpos;
+      console.log("computing coordinates");
       if (position) {
-        console.log(position);
-        return this.layout.computePosition([context.width(), context.height()], position);
+        console.log("position", position);
+        cpos = this.layout.computePosition([context.width(), context.height()], position);
+        console.log("cpos", cpos);
+        return cpos;
       } else if (this.spec.x && this.spec.y) {
         return [this.spec.x, this.spec.y];
       } else {
@@ -745,7 +752,6 @@
     function Group(stims, layout) {
       var stim, _i, _len, _ref2;
       this.stims = stims;
-      this.overlay = true;
       if (layout) {
         this.layout = layout;
         _ref2 = this.stims;
@@ -758,10 +764,12 @@
 
     Group.prototype.render = function(context, layer) {
       var stim, _i, _len, _ref2, _results;
+      console.log("rendering group");
       _ref2 = this.stims;
       _results = [];
       for (_i = 0, _len = _ref2.length; _i < _len; _i++) {
         stim = _ref2[_i];
+        console.log("rendering stim of group", stim);
         _results.push(stim.render(context, layer));
       }
       return _results;
@@ -1008,7 +1016,9 @@
 
     Rectangle.prototype.render = function(context, layer) {
       var coords, rect;
+      console.log("rendering rectangle");
       coords = this.computeCoordinates(context, this.spec.position);
+      console.log("position is", coords);
       rect = new Kinetic.Rect({
         x: coords[0],
         y: coords[1],
@@ -1018,6 +1028,7 @@
         stroke: this.spec.stroke,
         strokeWidth: this.spec.strokeWidth
       });
+      console.log("adding rect to layer", rect);
       return layer.add(rect);
     };
 
@@ -1493,18 +1504,57 @@
       return _ref2;
     }
 
-    KineticStimFactory.prototype.makeStimulus = function(name, params) {
+    KineticStimFactory.prototype.makeLayout = function(name, params, context) {
+      switch (name) {
+        case "Grid":
+          console.log("Grid params", params);
+          return new GridLayout(params[0], params[1], {
+            x: 0,
+            y: 0,
+            width: context.width(),
+            height: context.height()
+          });
+      }
+    };
+
+    KineticStimFactory.prototype.makeStimulus = function(name, params, context) {
+      var callee, i, layoutName, layoutParams, names, props, stims;
+      callee = arguments.callee;
       switch (name) {
         case "FixationCross":
           return new FixationCross(params);
+        case "Clear":
+          return new Clear(params);
+        case "Rectangle":
+          console.log("when Rectangle", params);
+          return new Rectangle(params);
         case "Text":
           return new Text(params);
+        case "Group":
+          names = _.map(params.stims, function(stim) {
+            return _.keys(stim)[0];
+          });
+          props = _.map(params.stims, function(stim) {
+            return _.values(stim)[0];
+          });
+          stims = (function() {
+            var _i, _ref3, _results;
+            _results = [];
+            for (i = _i = 0, _ref3 = names.length; 0 <= _ref3 ? _i < _ref3 : _i > _ref3; i = 0 <= _ref3 ? ++_i : --_i) {
+              _results.push(callee(names[i], props[i]));
+            }
+            return _results;
+          })();
+          console.log("Group stims", stims);
+          layoutName = _.keys(params.layout)[0];
+          layoutParams = _.values(params.layout)[0];
+          return new Group(stims, this.makeLayout(layoutName, layoutParams, context));
         default:
           throw "No Stimulus type of name " + name;
       }
     };
 
-    KineticStimFactory.prototype.makeResponse = function(name, params) {
+    KineticStimFactory.prototype.makeResponse = function(name, params, context) {
       switch (name) {
         case "KeyPressed":
           return new KeypressResponse(params);
