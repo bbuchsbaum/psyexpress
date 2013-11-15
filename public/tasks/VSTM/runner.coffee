@@ -85,7 +85,8 @@ window.display =
               Grid: [7,7]
 
           Next:
-            KeyPressed:
+            KeyPress:
+              id: "probeResponse"
               keys: ['n', 'm']
               correct: if trial.probe is "match" then 'n' else 'm'
               timeout: 3000

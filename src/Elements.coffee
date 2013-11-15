@@ -17,7 +17,9 @@ else
 
 doTimer = (length, oncomplete) ->
   start = getTimestamp()
+  console.log("starting timer")
   instance = ->
+
     diff = (getTimestamp() - start)
     if diff >= length
       oncomplete(diff)
@@ -25,9 +27,9 @@ doTimer = (length, oncomplete) ->
       half = Math.max((length - diff)/2,1)
       if half < 20
         half = 1
-      window.setTimeout instance, half
+      setTimeout instance, half
 
-  window.setTimeout instance, 1
+  setTimeout instance, 1
 
 
 @browserBackDisabled = false
@@ -110,14 +112,13 @@ class GridLayout extends Layout
   #cellPosition: (dim, constraints) ->
 
   computePosition: (dim, constraints) ->
-    console.log("grid layout computing position")
     if dim[0] != @bounds.width and dim[1] != @bounds.height
       @bounds.width = dim[0]
       @bounds.height = dim[1]
       @cells = @computeCells()
-    console.log("constraints", constraints)
+
     cell = @cells[constraints[0]][constraints[1]]
-    console.log("grid cell is", cell)
+
     [cell.x + cell.width/2, cell.y + cell.height/2]
 
 
@@ -125,20 +126,28 @@ class GridLayout extends Layout
 exports.Stimulus =
 class Stimulus
 
-  spec: {}
+  constructor: (spec, defaultArgs) ->
+    console.log("spec is ", spec)
+    console.log("default args", defaultArgs)
+    @spec = _.defaults(spec, defaultArgs)
 
-  @overlay = false
+    console.log("spec is now ", @spec)
+    #@id =  @spec.id? or _.uniqueId("stim_")
+
+    if @spec?.id?
+      @id = @spec.id
+    else
+      @id = _.uniqueId("stim_")
+
+  overlay: false
 
   layout: new AbsoluteLayout()
 
   stopped: false
 
   computeCoordinates: (context, position) ->
-    console.log("computing coordinates")
     if position
-      console.log("position", position)
       cpos = @layout.computePosition([context.width(), context.height()], position)
-      console.log("cpos", cpos)
       cpos
     else if @spec.x and @spec.y
       [@spec.x, @spec.y]
@@ -150,34 +159,65 @@ class Stimulus
 
   stop: -> @stopped = true
 
-  id: -> @spec.id or _.uniqueId()
+  #id: -> @spec.id or _.uniqueId()
 
 
 exports.Response =
 class Response extends Stimulus
+  constructor: (spec, defaultArgs) ->
+    super(spec, defaultArgs)
 
   activate: (context) ->
 
+
+
+exports.EventData =
+class EventData
+
+  constructor: (@name, @id, @data) ->
+
+exports.EventDataLog =
+class EventDataLog
+  constructor: ->
+    @events = []
+
+  push: (event) -> @events.push(event)
+
+  last: ->
+    if @events.length < 1
+      throw "EventLog is Empty, canot access last element"
+    @events[@events.length-1]
+
+  findLast: (id) ->
+    len = @events.length - 1
+    for i in [len .. 0]
+      return @events[i] if @events[i].id is id
+
+
+
+tmp1 = new EventData("hello", "24", {x: 8})
+tmp2 = new EventData("goodbye", "24", {x: 8})
+tmp3 = new EventData("goyyyyyy", "29", {x: 8})
+
+elog = new EventDataLog()
+elog.push(tmp1)
+elog.push(tmp2)
+
+console.log("elog last", elog.last())
+console.log("elog find last", elog.findLast("24"))
 
 exports.Timeout =
 class Timeout extends Response
 
   constructor: (spec = {}) ->
-    @spec = _.defaults(spec, { duration: 2000 } )
+    super(spec, { duration: 2000 } )
 
     @oninstance = (steps, count) -> console.log(steps, count)
 
   activate: (context) ->
     deferred = Q.defer()
-    start = getTimestamp()
-    console.log("time stamp", start)
-    #doTimer(@spec.duration, 20, @oninstance, (steps, count) =>
-    #  diff = getTimestamp() - start
-    #  console.log("diff", diff)
-    #  console.log("requested", @spec.duration)
-    #  deferred.resolve(diff))
 
-    doTimer(@spec.duration, (diff) => deferred.resolve(diff))
+    doTimer(@spec.duration, (diff) => deferred.resolve({timeout: diff, requested: @spec.duration}))
     deferred.promise
 
 
@@ -261,12 +301,12 @@ class TypedResponse
 
 
 
-exports.MousepressResponse =
-class MousepressResponse extends Response
+exports.MousePressResponse =
+class MousePressResponse extends Response
   constructor: ->
 
   activate: (context) ->
-    deferred = Q.defer()
+    deferred = Q.de fer()
     mouse = context.mousepressStream()
     mouse.stream.take(1).onValue((event) =>
                                mouse.stop()
@@ -274,22 +314,30 @@ class MousepressResponse extends Response
     deferred.promise
 
 
-exports.KeypressResponse =
-class KeypressResponse extends Response
-  constructor: (@spec = {}) ->
-    @spec = _.defaults(@spec, { keys: ['n', 'm'], correct: ['n'], timeout: 3000} )
+exports.KeyPressResponse =
+class KeyPressResponse extends Response
+  constructor: (spec = {}) ->
+    super(spec, { keys: ['n', 'm'], correct: ['n'], timeout: 3000} )
 
   activate: (context) ->
+    @startTime = getTimestamp()
     deferred = Q.defer()
     keyStream = context.keypressStream()
     keyStream.filter((event) =>
       char = String.fromCharCode(event.keyCode)
       _.contains(@spec.keys, char)).take(1).onValue((filtered) =>
                                 Acc = _.contains(@spec.correct, String.fromCharCode(filtered.keyCode))
+                                timestamp = getTimestamp()
+                                resp = new EventData("KeyPress", @id,
+                                  KeyTime: timestamp
+                                  RT: timestamp - @startTime
+                                  Accuracy: Acc
+                                  KeyChar: String.fromCharCode(filtered.keyCode))
+
                                 context.logEvent("KeyPress", getTimestamp())
                                 context.logEvent("$ACC", Acc)
 
-                                deferred.resolve(event))
+                                deferred.resolve(resp))
 
     deferred.promise
 
@@ -303,12 +351,7 @@ class SpaceKeyResponse extends Response
     keyStream = context.keypressStream()
     keyStream.filter((event) =>
       char = String.fromCharCode(event.keyCode)
-      console.log(char)
-      console.log(event.keyCode)
       event.keyCode == 32).take(1).onValue((event) =>
-        console.log("resolving space key")
-
-
         context.logEvent("SpaceKey", getTimestamp())
         deferred.resolve(event))
 
@@ -393,7 +436,7 @@ class TextInput extends Stimulus
       else if e.keyCode >= 48 && e.keyCode <=57
         String.fromCharCode(e.keyCode)
       else
-        console.log("key code is",e.keyCode)
+        #console.log("key code is",e.keyCode)
         switch e.keyCode
           when 186 then ";"
           when 187 then "="
@@ -439,7 +482,7 @@ class TextInput extends Stimulus
         #deferred.resolve(freeText)
       else if event.keyCode == 8
         ## Backspace
-        console.log("delete key")
+        #console.log("delete key")
         textContent = textContent.slice(0, - 1)
         text.setText(textContent)
         cursor.setX(text.getX() + text.getWidth() - 7)
@@ -448,7 +491,7 @@ class TextInput extends Stimulus
         return
       else
         char = @getChar(event)
-        console.log("char is", char)
+        #console.log("char is", char)
         textContent += char
 
         text.setText(textContent)
@@ -507,6 +550,7 @@ exports.Group =
 class Group extends Stimulus
 
   constructor: (@stims, layout) ->
+    super({}, {})
     #@overlay = true
     if layout
       @layout = layout
@@ -516,9 +560,7 @@ class Group extends Stimulus
 
 
   render: (context, layer) ->
-    console.log("rendering group")
     for stim in @stims
-      console.log("rendering stim of group", stim)
       stim.render(context, layer)
 
 # VerticalGroup lays out stimuli from top to bottom
@@ -575,7 +617,6 @@ class Sequence extends Stimulus
           stim.render(context, layer)
           context.draw()
         if i == @stims.length-1
-          console.log("resolving promise", i)
           deferred.resolve(1)
       )
     )
@@ -654,17 +695,16 @@ class Arrow extends Stimulus
 exports.Rectangle =
 class Rectangle extends Stimulus
   constructor: (spec = {}) ->
-    @spec = _.defaults(spec, { x: 0, y: 0, width: 100, height: 100, fill: 'red'})
+    super(spec, { x: 0, y: 0, width: 100, height: 100, fill: 'red'} )
     @spec = _.omit(@spec, (value, key) -> not value)
-    if @spec.layout
+
+    if @spec.layout?
       @layout = @spec.layout
 
   render: (context, layer) ->
-    console.log("rendering rectangle")
+
     coords = @computeCoordinates(context, @spec.position)
-    console.log("position is", coords)
     rect = new Kinetic.Rect({ x: coords[0], y: coords[1], width: @spec.width, height: @spec.height, fill: @spec.fill, stroke: @spec.stroke, strokeWidth: @spec.strokeWidth })
-    console.log("adding rect to layer", rect)
     layer.add(rect)
 
 
@@ -683,7 +723,7 @@ class Circle extends Stimulus
 exports.FixationCross =
 class FixationCross extends Stimulus
   constructor: (spec = {}) ->
-    @spec = _.defaults(spec, { strokeWidth: 8, length: 150, fill: 'black'})
+    super(spec, { strokeWidth: 8, length: 150, fill: 'black'})
 
   render: (context, layer) ->
 
@@ -891,12 +931,11 @@ class KineticContext extends Psy.ExperimentContext
     @backgroundLayer.removeChildren()
 
   clearContent: (draw=false) ->
-    console.log("clearing html")
+
     @hideHtml()
     @contentLayer.removeChildren()
     if draw
       @draw()
-    console.log("finished clearing content")
 
 
   draw: ->
@@ -952,7 +991,6 @@ class KineticStimFactory extends Psy.StimFactory
   makeLayout: (name, params, context) ->
     switch name
       when "Grid"
-        console.log("Grid params", params)
         new GridLayout(params[0], params[1], {x: 0, y: 0, width: context.width(), height: context.height()})
 
   makeStimulus: (name, params, context) ->
@@ -962,16 +1000,14 @@ class KineticStimFactory extends Psy.StimFactory
     switch name
       when "FixationCross" then new FixationCross(params)
       when "Clear" then new Clear(params)
-      when "Rectangle"
-        console.log("when Rectangle", params)
-        new Rectangle(params)
+      when "Rectangle" then new Rectangle(params)
       when "Text" then new Text(params)
       when "Group"
         names = _.map(params.stims, (stim) -> _.keys(stim)[0])
         props = _.map(params.stims, (stim) -> _.values(stim)[0])
         stims = for i in [0...names.length]
           callee(names[i], props[i])
-        console.log("Group stims", stims)
+
         layoutName = _.keys(params.layout)[0]
         layoutParams = _.values(params.layout)[0]
 
@@ -979,10 +1015,18 @@ class KineticStimFactory extends Psy.StimFactory
       else throw "No Stimulus type of name #{name}"
   makeResponse: (name, params, context) ->
     switch name
-      when "KeyPressed" then new KeypressResponse(params)
+      when "KeyPress" then new KeyPressResponse(params)
       when "Timeout" then new Timeout(params)
       else throw "No Response type of name #{name}"
 
   makeEvent: (stim, response) -> new Psy.Event(stim, response)
 
 
+
+x = new Timeout({duration: 22})
+prom = x.activate()
+prom.then( (resp) ->
+  console.log("resp", resp)
+)
+
+console.log(new Response().id)

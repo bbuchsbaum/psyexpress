@@ -65,7 +65,7 @@
   });
   require.define('/PsyCloud.js', function (module, exports, __dirname, __filename) {
     (function () {
-      var ArrayIterator, CellTable, CombinatoricSampler, ConditionalSampler, DataTable, Event, ExhaustiveSampler, ExpDesign, Experiment, ExperimentContext, Factor, FactorNode, FactorSetNode, FactorSpec, GridSampler, ItemNode, Iterator, MatchSampler, MockStimFactory, Presenter, Q, Sampler, StimFactory, TaskNode, TaskSchema, Trial, TrialList, UniformSampler, VarSpec, VariablesNode, asArray, clone, des, msam, permute, rep, repLen, sam, sample, _, _i, _ref, _results, __hasProp = {}.hasOwnProperty, __extends = function (child, parent) {
+      var ArrayIterator, CellTable, CombinatoricSampler, ConditionalSampler, DataTable, Event, ExhaustiveSampler, ExpDesign, Experiment, ExperimentContext, Factor, FactorNode, FactorSetNode, FactorSpec, GridSampler, ItemNode, Iterator, MatchSampler, MockStimFactory, Presenter, Q, Sampler, StimFactory, TaskNode, TaskSchema, Trial, TrialList, UniformSampler, VarSpec, VariablesNode, asArray, clone, deferred, des, msam, permute, prom, prom2, prom3, rep, repLen, sam, sample, _, _i, _ref, _results, __hasProp = {}.hasOwnProperty, __extends = function (child, parent) {
           for (var key in parent) {
             if (__hasProp.call(parent, key))
               child[key] = parent[key];
@@ -777,6 +777,7 @@
           context.draw();
           console.log('activating response');
           return this.response.activate(context).then(function (ret) {
+            console.log('response is ', ret);
             _this.stimulus.stop();
             return ret;
           });
@@ -1573,6 +1574,24 @@
         }
       };
       console.log(des.Blocks);
+      prom = Q.fcall(function () {
+        console.log('promise 1');
+        return 1;
+      });
+      prom2 = prom.then(function (input) {
+        console.log('input is', input);
+        return input + 1;
+      });
+      prom3 = prom2.then(function (input) {
+        console.log('input is', input);
+        return input + 1;
+      }).done();
+      deferred = Q.defer();
+      prom = deferred.promise;
+      prom.then(function (x) {
+        return console.log('resolved with', x);
+      });
+      deferred.resolve(44);
     }.call(this));
   });
   require.define('/../node_modules/q/q.js', function (module, exports, __dirname, __filename) {
@@ -4288,7 +4307,7 @@
   });
   require.define('/Elements.js', function (module, exports, __dirname, __filename) {
     (function () {
-      var AbsoluteLayout, Arrow, Background, Bacon, Blank, CanvasBorder, Circle, Clear, ClickResponse, Confirm, FirstResponse, FixationCross, GridLayout, GridLines, Group, KeypressResponse, KineticContext, KineticStimFactory, Layout, Markdown, MousepressResponse, MultipleChoice, Paragraph, Picture, Prompt, Psy, Q, Rectangle, Response, Sequence, Sound, SpaceKeyResponse, StartButton, Stimulus, Text, TextInput, Timeout, TypedResponse, computeGridCells, convertPercentageToFraction, convertToCoordinate, disableBrowserBack, doTimer, getTimestamp, isPercentage, position, _, _ref, _ref1, _ref2, __hasProp = {}.hasOwnProperty, __extends = function (child, parent) {
+      var AbsoluteLayout, Arrow, Background, Bacon, Blank, CanvasBorder, Circle, Clear, ClickResponse, Confirm, EventData, EventDataLog, FirstResponse, FixationCross, GridLayout, GridLines, Group, KeyPressResponse, KineticContext, KineticStimFactory, Layout, Markdown, MousePressResponse, MultipleChoice, Paragraph, Picture, Prompt, Psy, Q, Rectangle, Response, Sequence, Sound, SpaceKeyResponse, StartButton, Stimulus, Text, TextInput, Timeout, TypedResponse, computeGridCells, convertPercentageToFraction, convertToCoordinate, disableBrowserBack, doTimer, elog, getTimestamp, isPercentage, position, prom, tmp1, tmp2, tmp3, x, _, _ref, _ref1, __hasProp = {}.hasOwnProperty, __extends = function (child, parent) {
           for (var key in parent) {
             if (__hasProp.call(parent, key))
               child[key] = parent[key];
@@ -4324,6 +4343,7 @@
       doTimer = function (length, oncomplete) {
         var instance, start;
         start = getTimestamp();
+        console.log('starting timer');
         instance = function () {
           var diff, half;
           diff = getTimestamp() - start;
@@ -4334,10 +4354,10 @@
             if (half < 20) {
               half = 1;
             }
-            return window.setTimeout(instance, half);
+            return setTimeout(instance, half);
           }
         };
-        return window.setTimeout(instance, 1);
+        return setTimeout(instance, 1);
       };
       this.browserBackDisabled = false;
       disableBrowserBack = function () {
@@ -4429,15 +4449,12 @@
         };
         GridLayout.prototype.computePosition = function (dim, constraints) {
           var cell;
-          console.log('grid layout computing position');
           if (dim[0] !== this.bounds.width && dim[1] !== this.bounds.height) {
             this.bounds.width = dim[0];
             this.bounds.height = dim[1];
             this.cells = this.computeCells();
           }
-          console.log('constraints', constraints);
           cell = this.cells[constraints[0]][constraints[1]];
-          console.log('grid cell is', cell);
           return [
             cell.x + cell.width / 2,
             cell.y + cell.height / 2
@@ -4446,22 +4463,28 @@
         return GridLayout;
       }(Layout);
       exports.Stimulus = Stimulus = function () {
-        function Stimulus() {
+        function Stimulus(spec, defaultArgs) {
+          var _ref1;
+          console.log('spec is ', spec);
+          console.log('default args', defaultArgs);
+          this.spec = _.defaults(spec, defaultArgs);
+          console.log('spec is now ', this.spec);
+          if (((_ref1 = this.spec) != null ? _ref1.id : void 0) != null) {
+            this.id = this.spec.id;
+          } else {
+            this.id = _.uniqueId('stim_');
+          }
         }
-        Stimulus.prototype.spec = {};
-        Stimulus.overlay = false;
+        Stimulus.prototype.overlay = false;
         Stimulus.prototype.layout = new AbsoluteLayout;
         Stimulus.prototype.stopped = false;
         Stimulus.prototype.computeCoordinates = function (context, position) {
           var cpos;
-          console.log('computing coordinates');
           if (position) {
-            console.log('position', position);
             cpos = this.layout.computePosition([
               context.width(),
               context.height()
             ], position);
-            console.log('cpos', cpos);
             return cpos;
           } else if (this.spec.x && this.spec.y) {
             return [
@@ -4483,39 +4506,76 @@
         Stimulus.prototype.stop = function () {
           return this.stopped = true;
         };
-        Stimulus.prototype.id = function () {
-          return this.spec.id || _.uniqueId();
-        };
         return Stimulus;
       }();
       exports.Response = Response = function (_super) {
         __extends(Response, _super);
-        function Response() {
-          _ref1 = Response.__super__.constructor.apply(this, arguments);
-          return _ref1;
+        function Response(spec, defaultArgs) {
+          Response.__super__.constructor.call(this, spec, defaultArgs);
         }
         Response.prototype.activate = function (context) {
         };
         return Response;
       }(Stimulus);
+      exports.EventData = EventData = function () {
+        function EventData(name, id, data) {
+          this.name = name;
+          this.id = id;
+          this.data = data;
+        }
+        return EventData;
+      }();
+      exports.EventDataLog = EventDataLog = function () {
+        function EventDataLog() {
+          this.events = [];
+        }
+        EventDataLog.prototype.push = function (event) {
+          return this.events.push(event);
+        };
+        EventDataLog.prototype.last = function () {
+          if (this.events.length < 1) {
+            throw 'EventLog is Empty, canot access last element';
+          }
+          return this.events[this.events.length - 1];
+        };
+        EventDataLog.prototype.findLast = function (id) {
+          var i, len, _i;
+          len = this.events.length - 1;
+          for (i = _i = len; len <= 0 ? _i <= 0 : _i >= 0; i = len <= 0 ? ++_i : --_i) {
+            if (this.events[i].id === id) {
+              return this.events[i];
+            }
+          }
+        };
+        return EventDataLog;
+      }();
+      tmp1 = new EventData('hello', '24', { x: 8 });
+      tmp2 = new EventData('goodbye', '24', { x: 8 });
+      tmp3 = new EventData('goyyyyyy', '29', { x: 8 });
+      elog = new EventDataLog;
+      elog.push(tmp1);
+      elog.push(tmp2);
+      console.log('elog last', elog.last());
+      console.log('elog find last', elog.findLast('24'));
       exports.Timeout = Timeout = function (_super) {
         __extends(Timeout, _super);
         function Timeout(spec) {
           if (spec == null) {
             spec = {};
           }
-          this.spec = _.defaults(spec, { duration: 2e3 });
+          Timeout.__super__.constructor.call(this, spec, { duration: 2e3 });
           this.oninstance = function (steps, count) {
             return console.log(steps, count);
           };
         }
         Timeout.prototype.activate = function (context) {
-          var deferred, start, _this = this;
+          var deferred, _this = this;
           deferred = Q.defer();
-          start = getTimestamp();
-          console.log('time stamp', start);
           doTimer(this.spec.duration, function (diff) {
-            return deferred.resolve(diff);
+            return deferred.resolve({
+              timeout: diff,
+              requested: _this.spec.duration
+            });
           });
           return deferred.promise;
         };
@@ -4627,13 +4687,13 @@
         };
         return TypedResponse;
       }();
-      exports.MousepressResponse = MousepressResponse = function (_super) {
-        __extends(MousepressResponse, _super);
-        function MousepressResponse() {
+      exports.MousePressResponse = MousePressResponse = function (_super) {
+        __extends(MousePressResponse, _super);
+        function MousePressResponse() {
         }
-        MousepressResponse.prototype.activate = function (context) {
+        MousePressResponse.prototype.activate = function (context) {
           var deferred, mouse, _this = this;
-          deferred = Q.defer();
+          deferred = Q.de(fer());
           mouse = context.mousepressStream();
           mouse.stream.take(1).onValue(function (event) {
             mouse.stop();
@@ -4641,13 +4701,15 @@
           });
           return deferred.promise;
         };
-        return MousepressResponse;
+        return MousePressResponse;
       }(Response);
-      exports.KeypressResponse = KeypressResponse = function (_super) {
-        __extends(KeypressResponse, _super);
-        function KeypressResponse(spec) {
-          this.spec = spec != null ? spec : {};
-          this.spec = _.defaults(this.spec, {
+      exports.KeyPressResponse = KeyPressResponse = function (_super) {
+        __extends(KeyPressResponse, _super);
+        function KeyPressResponse(spec) {
+          if (spec == null) {
+            spec = {};
+          }
+          KeyPressResponse.__super__.constructor.call(this, spec, {
             keys: [
               'n',
               'm'
@@ -4656,8 +4718,9 @@
             timeout: 3e3
           });
         }
-        KeypressResponse.prototype.activate = function (context) {
+        KeyPressResponse.prototype.activate = function (context) {
           var deferred, keyStream, _this = this;
+          this.startTime = getTimestamp();
           deferred = Q.defer();
           keyStream = context.keypressStream();
           keyStream.filter(function (event) {
@@ -4665,15 +4728,22 @@
             char = String.fromCharCode(event.keyCode);
             return _.contains(_this.spec.keys, char);
           }).take(1).onValue(function (filtered) {
-            var Acc;
+            var Acc, resp, timestamp;
             Acc = _.contains(_this.spec.correct, String.fromCharCode(filtered.keyCode));
+            timestamp = getTimestamp();
+            resp = new EventData('KeyPress', _this.id, {
+              KeyTime: timestamp,
+              RT: timestamp - _this.startTime,
+              Accuracy: Acc,
+              KeyChar: String.fromCharCode(filtered.keyCode)
+            });
             context.logEvent('KeyPress', getTimestamp());
             context.logEvent('$ACC', Acc);
-            return deferred.resolve(event);
+            return deferred.resolve(resp);
           });
           return deferred.promise;
         };
-        return KeypressResponse;
+        return KeyPressResponse;
       }(Response);
       exports.SpaceKeyResponse = SpaceKeyResponse = function (_super) {
         __extends(SpaceKeyResponse, _super);
@@ -4687,11 +4757,8 @@
           keyStream.filter(function (event) {
             var char;
             char = String.fromCharCode(event.keyCode);
-            console.log(char);
-            console.log(event.keyCode);
             return event.keyCode === 32;
           }).take(1).onValue(function (event) {
-            console.log('resolving space key');
             context.logEvent('SpaceKey', getTimestamp());
             return deferred.resolve(event);
           });
@@ -4752,8 +4819,8 @@
           });
         }
         GridLines.prototype.render = function (context, layer) {
-          var i, line, x, y, _i, _j, _ref2, _ref3, _results;
-          for (i = _i = 0, _ref2 = this.spec.rows; 0 <= _ref2 ? _i <= _ref2 : _i >= _ref2; i = 0 <= _ref2 ? ++_i : --_i) {
+          var i, line, x, y, _i, _j, _ref1, _ref2, _results;
+          for (i = _i = 0, _ref1 = this.spec.rows; 0 <= _ref1 ? _i <= _ref1 : _i >= _ref1; i = 0 <= _ref1 ? ++_i : --_i) {
             y = this.spec.y + i * context.height() / this.spec.rows;
             line = new Kinetic.Line({
               points: [
@@ -4769,7 +4836,7 @@
             layer.add(line);
           }
           _results = [];
-          for (i = _j = 0, _ref3 = this.spec.cols; 0 <= _ref3 ? _j <= _ref3 : _j >= _ref3; i = 0 <= _ref3 ? ++_j : --_j) {
+          for (i = _j = 0, _ref2 = this.spec.cols; 0 <= _ref2 ? _j <= _ref2 : _j >= _ref2; i = 0 <= _ref2 ? ++_j : --_j) {
             x = this.spec.x + i * context.width() / this.spec.cols;
             line = new Kinetic.Line({
               points: [
@@ -4818,7 +4885,6 @@
             } else if (e.keyCode >= 48 && e.keyCode <= 57) {
               return String.fromCharCode(e.keyCode);
             } else {
-              console.log('key code is', e.keyCode);
               switch (e.keyCode) {
               case 186:
                 return ';';
@@ -4892,7 +4958,6 @@
             if (event.keyCode === 13) {
               return enterPressed = true;
             } else if (event.keyCode === 8) {
-              console.log('delete key');
               textContent = textContent.slice(0, -1);
               text.setText(textContent);
               cursor.setX(text.getX() + text.getWidth() - 7);
@@ -4900,7 +4965,6 @@
             } else if (text.getWidth() > textRect.getWidth()) {
             } else {
               char = _this.getChar(event);
-              console.log('char is', char);
               textContent += char;
               text.setText(textContent);
               cursor.setX(text.getX() + text.getWidth() - 7);
@@ -4960,25 +5024,24 @@
       exports.Group = Group = function (_super) {
         __extends(Group, _super);
         function Group(stims, layout) {
-          var stim, _i, _len, _ref2;
+          var stim, _i, _len, _ref1;
           this.stims = stims;
+          Group.__super__.constructor.call(this, {}, {});
           if (layout) {
             this.layout = layout;
-            _ref2 = this.stims;
-            for (_i = 0, _len = _ref2.length; _i < _len; _i++) {
-              stim = _ref2[_i];
+            _ref1 = this.stims;
+            for (_i = 0, _len = _ref1.length; _i < _len; _i++) {
+              stim = _ref1[_i];
               stim.layout = layout;
             }
           }
         }
         Group.prototype.render = function (context, layer) {
-          var stim, _i, _len, _ref2, _results;
-          console.log('rendering group');
-          _ref2 = this.stims;
+          var stim, _i, _len, _ref1, _results;
+          _ref1 = this.stims;
           _results = [];
-          for (_i = 0, _len = _ref2.length; _i < _len; _i++) {
-            stim = _ref2[_i];
-            console.log('rendering stim of group', stim);
+          for (_i = 0, _len = _ref1.length; _i < _len; _i++) {
+            stim = _ref1[_i];
             _results.push(stim.render(context, layer));
           }
           return _results;
@@ -4992,7 +5055,7 @@
           this.fill = fill != null ? fill : 'white';
         }
         Background.prototype.render = function (context, layer) {
-          var background, stim, _i, _len, _ref2, _results;
+          var background, stim, _i, _len, _ref1, _results;
           background = new Kinetic.Rect({
             x: 0,
             y: 0,
@@ -5002,10 +5065,10 @@
             fill: this.fill
           });
           layer.add(background);
-          _ref2 = this.stims;
+          _ref1 = this.stims;
           _results = [];
-          for (_i = 0, _len = _ref2.length; _i < _len; _i++) {
-            stim = _ref2[_i];
+          for (_i = 0, _len = _ref1.length; _i < _len; _i++) {
+            stim = _ref1[_i];
             _results.push(stim.render(context, layer));
           }
           return _results;
@@ -5025,9 +5088,9 @@
             this.soa = Psy.repLen(this.soa, this.stims.length);
           }
           this.onsets = function () {
-            var _i, _ref2, _results;
+            var _i, _ref1, _results;
             _results = [];
-            for (i = _i = 0, _ref2 = this.soa.length; 0 <= _ref2 ? _i < _ref2 : _i > _ref2; i = 0 <= _ref2 ? ++_i : --_i) {
+            for (i = _i = 0, _ref1 = this.soa.length; 0 <= _ref1 ? _i < _ref1 : _i > _ref1; i = 0 <= _ref1 ? ++_i : --_i) {
               _results.push(_.reduce(this.soa.slice(0, +i + 1 || 9e9), function (x, acc) {
                 return x + acc;
               }));
@@ -5036,11 +5099,11 @@
           }.call(this);
         }
         Sequence.prototype.genseq = function (context, layer) {
-          var deferred, _i, _ref2, _results, _this = this;
+          var deferred, _i, _ref1, _results, _this = this;
           deferred = Q.defer();
           _.forEach(function () {
             _results = [];
-            for (var _i = 0, _ref2 = this.stims.length; 0 <= _ref2 ? _i < _ref2 : _i > _ref2; 0 <= _ref2 ? _i++ : _i--) {
+            for (var _i = 0, _ref1 = this.stims.length; 0 <= _ref1 ? _i < _ref1 : _i > _ref1; 0 <= _ref1 ? _i++ : _i--) {
               _results.push(_i);
             }
             return _results;
@@ -5058,7 +5121,6 @@
                 context.draw();
               }
               if (i === _this.stims.length - 1) {
-                console.log('resolving promise', i);
                 return deferred.resolve(1);
               }
             });
@@ -5066,9 +5128,9 @@
           return deferred.promise;
         };
         Sequence.prototype.render = function (context, layer) {
-          var i, result, _i, _ref2, _this = this;
+          var i, result, _i, _ref1, _this = this;
           result = Q.resolve(0);
-          for (i = _i = 0, _ref2 = this.times; 0 <= _ref2 ? _i < _ref2 : _i > _ref2; i = 0 <= _ref2 ? ++_i : --_i) {
+          for (i = _i = 0, _ref1 = this.times; 0 <= _ref1 ? _i < _ref1 : _i > _ref1; i = 0 <= _ref1 ? ++_i : --_i) {
             result = result.then(function () {
               return _this.genseq(context, layer);
             });
@@ -5175,7 +5237,7 @@
           if (spec == null) {
             spec = {};
           }
-          this.spec = _.defaults(spec, {
+          Rectangle.__super__.constructor.call(this, spec, {
             x: 0,
             y: 0,
             width: 100,
@@ -5185,15 +5247,13 @@
           this.spec = _.omit(this.spec, function (value, key) {
             return !value;
           });
-          if (this.spec.layout) {
+          if (this.spec.layout != null) {
             this.layout = this.spec.layout;
           }
         }
         Rectangle.prototype.render = function (context, layer) {
           var coords, rect;
-          console.log('rendering rectangle');
           coords = this.computeCoordinates(context, this.spec.position);
-          console.log('position is', coords);
           rect = new Kinetic.Rect({
             x: coords[0],
             y: coords[1],
@@ -5203,7 +5263,6 @@
             stroke: this.spec.stroke,
             strokeWidth: this.spec.strokeWidth
           });
-          console.log('adding rect to layer', rect);
           return layer.add(rect);
         };
         return Rectangle;
@@ -5243,7 +5302,7 @@
           if (spec == null) {
             spec = {};
           }
-          this.spec = _.defaults(spec, {
+          FixationCross.__super__.constructor.call(this, spec, {
             strokeWidth: 8,
             length: 150,
             fill: 'black'
@@ -5494,7 +5553,7 @@
           });
         }
         MultipleChoice.prototype.render = function (context, layer) {
-          var choice, i, questionText, _i, _ref2, _results;
+          var choice, i, questionText, _i, _ref1, _results;
           questionText = new Kinetic.Text({
             x: this.spec.x,
             y: this.spec.y,
@@ -5505,7 +5564,7 @@
           });
           layer.add(questionText);
           _results = [];
-          for (i = _i = 0, _ref2 = this.spec.options.length; 0 <= _ref2 ? _i < _ref2 : _i > _ref2; i = 0 <= _ref2 ? ++_i : --_i) {
+          for (i = _i = 0, _ref1 = this.spec.options.length; 0 <= _ref1 ? _i < _ref1 : _i > _ref1; i = 0 <= _ref1 ? ++_i : --_i) {
             choice = new Kinetic.Text({
               x: this.spec.x + 5,
               y: questionText.getHeight() * (i + 1) + 30,
@@ -5579,13 +5638,11 @@
           if (draw == null) {
             draw = false;
           }
-          console.log('clearing html');
           this.hideHtml();
           this.contentLayer.removeChildren();
           if (draw) {
-            this.draw();
+            return this.draw();
           }
-          return console.log('finished clearing content');
         };
         KineticContext.prototype.draw = function () {
           $('#container').focus();
@@ -5634,13 +5691,12 @@
       exports.KineticStimFactory = KineticStimFactory = function (_super) {
         __extends(KineticStimFactory, _super);
         function KineticStimFactory() {
-          _ref2 = KineticStimFactory.__super__.constructor.apply(this, arguments);
-          return _ref2;
+          _ref1 = KineticStimFactory.__super__.constructor.apply(this, arguments);
+          return _ref1;
         }
         KineticStimFactory.prototype.makeLayout = function (name, params, context) {
           switch (name) {
           case 'Grid':
-            console.log('Grid params', params);
             return new GridLayout(params[0], params[1], {
               x: 0,
               y: 0,
@@ -5658,7 +5714,6 @@
           case 'Clear':
             return new Clear(params);
           case 'Rectangle':
-            console.log('when Rectangle', params);
             return new Rectangle(params);
           case 'Text':
             return new Text(params);
@@ -5670,14 +5725,13 @@
               return _.values(stim)[0];
             });
             stims = function () {
-              var _i, _ref3, _results;
+              var _i, _ref2, _results;
               _results = [];
-              for (i = _i = 0, _ref3 = names.length; 0 <= _ref3 ? _i < _ref3 : _i > _ref3; i = 0 <= _ref3 ? ++_i : --_i) {
+              for (i = _i = 0, _ref2 = names.length; 0 <= _ref2 ? _i < _ref2 : _i > _ref2; i = 0 <= _ref2 ? ++_i : --_i) {
                 _results.push(callee(names[i], props[i]));
               }
               return _results;
             }();
-            console.log('Group stims', stims);
             layoutName = _.keys(params.layout)[0];
             layoutParams = _.values(params.layout)[0];
             return new Group(stims, this.makeLayout(layoutName, layoutParams, context));
@@ -5687,8 +5741,8 @@
         };
         KineticStimFactory.prototype.makeResponse = function (name, params, context) {
           switch (name) {
-          case 'KeyPressed':
-            return new KeypressResponse(params);
+          case 'KeyPress':
+            return new KeyPressResponse(params);
           case 'Timeout':
             return new Timeout(params);
           default:
@@ -5700,6 +5754,12 @@
         };
         return KineticStimFactory;
       }(Psy.StimFactory);
+      x = new Timeout({ duration: 22 });
+      prom = x.activate();
+      prom.then(function (resp) {
+        return console.log('resp', resp);
+      });
+      console.log(new Response().id);
     }.call(this));
   });
   require.define('/lib/Bacon.js', function (module, exports, __dirname, __filename) {

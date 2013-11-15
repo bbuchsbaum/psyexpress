@@ -477,6 +477,7 @@ exports.Event =
 
       @response.activate(context).then((ret) =>
         ##
+        console.log("response is ", ret)
         @stimulus.stop()
         ret
       )
@@ -1087,6 +1088,32 @@ des = Design:
   ]
 
 console.log(des.Blocks)
+
+
+prom = Q.fcall ->
+  console.log("promise 1")
+  1
+
+prom2 = prom.then( (input) ->
+  console.log("input is", input)
+  input + 1
+)
+
+prom3 = prom2.then( (input) ->
+  console.log("input is", input)
+  input + 1
+).done()
+
+
+deferred = Q.defer()
+prom = deferred.promise
+prom.then((x) -> console.log("resolved with", x))
+
+deferred.resolve(44)
+
+
+
+
 
 
 

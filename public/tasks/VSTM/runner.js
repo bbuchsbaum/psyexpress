@@ -117,7 +117,8 @@
                 }
               },
               Next: {
-                KeyPressed: {
+                KeyPress: {
+                  id: "probeResponse",
                   keys: ['n', 'm'],
                   correct: trial.probe === "match" ? 'n' : 'm',
                   timeout: 3000
