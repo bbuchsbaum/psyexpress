@@ -47,6 +47,17 @@
     };
   };
 
+  this.makeResponseTrial = function(resp, bg) {
+    var _this = this;
+    if (bg == null) {
+      bg = new Psy.Background([], "white");
+    }
+    return function() {
+      resp.reset();
+      return new Psy.Trial([new Psy.Event(resp, resp), ClearEvent], {}, bg);
+    };
+  };
+
   this.wrapEvents = function(events, bg) {
     var _this = this;
     if (bg == null) {
@@ -94,10 +105,7 @@
           for (var _i = 0; 0 <= load ? _i < load : _i > load; 0 <= load ? _i++ : _i--){ _results.push(_i); }
           return _results;
         }).apply(this))[0];
-        console.log("index", index);
-        console.log("old cols", cols);
         cols[index] = s3.take(1)[0];
-        console.log("new cols", cols);
         probeGroup = makeGroup(gloc, cols);
       } else {
         console.log("no change!", index);
@@ -182,7 +190,37 @@
       }), SpaceKey)
     },
     Markdown: {
-      "Basic Example": makeTrial(new Psy.Markdown('\nA First Level Header\n===================\nA Second Level Header\n---------------------\n### Header 3\n\n\nNow is the time for all good men to come to\nthe aid of their country. This is just a\nregular paragraph.\n\nThe quick brown fox jumped over the lazy\ndog\'s back.\n\n> This is a blockquote.\n>\n> This is the second paragraph in the blockquote.\n>\n> ## This is an H2 in a blockquote\n\n![alt text](http://www.html5canvastutorials.com/demos/assets/yoda.jpg "Title")\n\n'), SpaceKey)
+      "Basic Example": makeTrial(new Psy.Markdown('\nA First Level Header\n===================\nA Second Level Header\n---------------------\n### Header 3\n\n\nNow is the time for all good men to come to\nthe aid of their country. This is just a\nregular paragraph.\n\nThe quick brown fox jumped over the lazy\ndog\'s back.\n\n> This is a blockquote.\n>\n> This is the second paragraph in the blockquote.\n>\n> ## This is an H2 in a blockquote\n\n![alt text](http://www.html5canvastutorials.com/demos/assets/yoda.jpg "Title")\n\n'), SpaceKey),
+      "An External URL": makeTrial(new Psy.Markdown({
+        url: "/tasks/Capabilities/resources/page-1.md"
+      }), SpaceKey)
+    },
+    HtmlLink: {
+      Default: makeTrial(new Psy.HtmlLink(), SpaceOrTimeout5000),
+      XYPositioning: makeTrial(new Psy.HtmlLink({
+        label: "[100,100]",
+        x: 100,
+        y: 100
+      }), SpaceOrTimeout5000),
+      PercentagePositioning: makeTrial(new Psy.HtmlLink({
+        label: "[80%,80%]",
+        x: "80%",
+        y: "80%"
+      }), SpaceOrTimeout5000)
+    },
+    HtmlButton: {
+      Default: makeTrial(new Psy.HtmlButton(), SpaceOrTimeout5000),
+      PercentagePositioning: makeTrial(new Psy.HtmlButton({
+        label: "[80%,80%]",
+        x: "80%",
+        y: "80%"
+      }), SpaceOrTimeout5000),
+      CircularButton: makeTrial(new Psy.HtmlButton({
+        label: "[50%,50%]",
+        x: "80%",
+        y: "80%",
+        "class": "circular"
+      }), SpaceOrTimeout5000)
     },
     Blank: {
       "Black Background": makeTrial(new Psy.Blank({
@@ -320,6 +358,15 @@
     },
     MultipleChoice: {
       "Default MChoice": makeTrial(new Psy.MultipleChoice(), SpaceKey)
+    },
+    Instructions: {
+      "Simple Test": makeResponseTrial(new Psy.Instructions({
+        pages: {
+          1: "Hello",
+          2: "Goodbye",
+          3: "Dolly"
+        }
+      }))
     },
     Group: {
       "Group of Circles": makeTrial(new Psy.Group([
@@ -515,6 +562,9 @@
       "Confirm": makeTrial(Timeout1000, new Psy.Confirm({
         message: "Do you want to continue?"
       }))
+    },
+    DotMotion: {
+      "Test": makeTrial(new Psy.RandomDotMotion(), SpaceKey)
     }
   };
 
@@ -539,9 +589,7 @@
         this.activeTrial.stop();
       }
       this.activeTrial = trial();
-      console.log(trial);
-      this.activeTrial.start(context);
-      return console.log(e);
+      return this.activeTrial.start(context);
     });
   };
 

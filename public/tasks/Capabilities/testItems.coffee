@@ -27,6 +27,12 @@
     resp.reset()
     new Psy.Trial([new Psy.Event(stim, resp), ClearEvent], {}, bg)
 
+
+@makeResponseTrial = (resp, bg=new Psy.Background([],  "white")) ->
+  =>
+    resp.reset()
+    new Psy.Trial([new Psy.Event(resp, resp), ClearEvent], {}, bg)
+
 @wrapEvents = (events, bg=new Psy.Background([], "white")) ->
   => new Psy.Trial(events.concat(ClearEvent), {}, bg)
 
@@ -53,10 +59,9 @@
     if Math.random() > .5
       # change
       index = _.shuffle([0...load])[0]
-      console.log("index", index)
-      console.log("old cols", cols)
+
       cols[index] = s3.take(1)[0]
-      console.log("new cols", cols)
+
       probeGroup = makeGroup(gloc, cols)
     else
       console.log("no change!", index)
@@ -132,7 +137,18 @@
 
     '''), SpaceKey)
 
+    "An External URL": makeTrial(new Psy.Markdown({url: "/tasks/Capabilities/resources/page-1.md"}), SpaceKey)
 
+
+  HtmlLink:
+    Default: makeTrial(new Psy.HtmlLink(), SpaceOrTimeout5000)
+    XYPositioning: makeTrial(new Psy.HtmlLink({label: "[100,100]", x: 100, y: 100}), SpaceOrTimeout5000)
+    PercentagePositioning: makeTrial(new Psy.HtmlLink({label: "[80%,80%]", x: "80%", y: "80%"}), SpaceOrTimeout5000)
+
+  HtmlButton:
+    Default: makeTrial(new Psy.HtmlButton(), SpaceOrTimeout5000)
+    PercentagePositioning: makeTrial(new Psy.HtmlButton({label: "[80%,80%]", x: "80%", y: "80%"}), SpaceOrTimeout5000)
+    CircularButton: makeTrial(new Psy.HtmlButton({label: "[50%,50%]", x: "80%", y: "80%", class: "circular"}), SpaceOrTimeout5000)
   Blank:
     "Black Background": makeTrial(new Psy.Blank({fill: "black"}), SpaceOrTimeout5000)
     "Green Background": makeTrial(new Psy.Blank({fill: "green"}), SpaceOrTimeout5000)
@@ -184,6 +200,15 @@
 
   MultipleChoice:
     "Default MChoice": makeTrial(new Psy.MultipleChoice(), SpaceKey)
+
+  Instructions:
+    "Simple Test": makeResponseTrial(new Psy.Instructions(
+      pages:
+        1: "Hello"
+        2: "Goodbye"
+        3: "Dolly"
+    ))
+
 
   Group:
     "Group of Circles": makeTrial(new Psy.Group(
@@ -250,6 +275,9 @@
     "Prompt": makeTrial(Timeout1000, new Psy.Prompt({ title: "How old are you?"}))
     "Confirm": makeTrial(Timeout1000, new Psy.Confirm({ message: "Do you want to continue?"}))
 
+  DotMotion:
+    "Test": makeTrial(new Psy.RandomDotMotion(), SpaceKey)
+
 
 
 @activeTrial = null
@@ -272,9 +300,9 @@ window.updateTests = (name) ->
       @activeTrial.stop()
     @activeTrial = trial()
 
-    console.log(trial)
+
     @activeTrial.start(context)
-    console.log(e)
+
 
 
 

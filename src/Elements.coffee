@@ -2,12 +2,13 @@ Psy = require("./PsyCloud")
 Bacon = require("./lib/Bacon").Bacon
 _ = require('lodash')
 Q = require("q")
+markdown = require("./lib/markdown").markdown
 
 
-if window?.performance.now
+if window?.performance?.now
   console.log("Using high performance timer")
   getTimestamp = -> window.performance.now()
-else if window?.performance.webkitNow
+else if window?.performance?.webkitNow
   console.log("Using webkit high performance timer")
   getTimestamp = -> window.performance.webkitNow()
 else
@@ -17,7 +18,6 @@ else
 
 doTimer = (length, oncomplete) ->
   start = getTimestamp()
-  console.log("starting timer")
   instance = ->
 
     diff = (getTimestamp() - start)
@@ -94,15 +94,23 @@ class Layout
 
 
 exports.AbsoluteLayout =
-class AbsoluteLayout extends Layout
+class AbsoluteLayout extends exports.Layout
 
   computePosition: (dim, constraints) ->
     x = convertToCoordinate(constraints[0], dim[0])
     y = convertToCoordinate(constraints[1], dim[1])
     [x,y]
 
+
+#exports.DefaultLayout =
+#class DefaultLayout extends exports.Layout
+
+
+
+
+
 exports.GridLayout =
-class GridLayout extends Layout
+class GridLayout extends exports.Layout
   constructor: (@rows, @cols, @bounds) ->
     @ncells = @rows*@cols
     @cells = @computeCells()
@@ -127,12 +135,7 @@ exports.Stimulus =
 class Stimulus
 
   constructor: (spec, defaultArgs) ->
-    console.log("spec is ", spec)
-    console.log("default args", defaultArgs)
     @spec = _.defaults(spec, defaultArgs)
-
-    console.log("spec is now ", @spec)
-    #@id =  @spec.id? or _.uniqueId("stim_")
 
     if @spec?.id?
       @id = @spec.id
@@ -157,7 +160,7 @@ class Stimulus
 
   render: (context, layer) ->
 
-  stop: -> @stopped = true
+  stop: (context) -> @stopped = true
 
   #id: -> @spec.id or _.uniqueId()
 
@@ -171,35 +174,11 @@ class Response extends Stimulus
 
 
 
-exports.EventData =
-class EventData
+tmp1 = new Psy.EventData("hello", "24", {x: 8})
+tmp2 = new Psy.EventData("goodbye", "24", {x: 8})
+tmp3 = new Psy.EventData("goyyyyyy", "29", {x: 8})
 
-  constructor: (@name, @id, @data) ->
-
-exports.EventDataLog =
-class EventDataLog
-  constructor: ->
-    @events = []
-
-  push: (event) -> @events.push(event)
-
-  last: ->
-    if @events.length < 1
-      throw "EventLog is Empty, canot access last element"
-    @events[@events.length-1]
-
-  findLast: (id) ->
-    len = @events.length - 1
-    for i in [len .. 0]
-      return @events[i] if @events[i].id is id
-
-
-
-tmp1 = new EventData("hello", "24", {x: 8})
-tmp2 = new EventData("goodbye", "24", {x: 8})
-tmp3 = new EventData("goyyyyyy", "29", {x: 8})
-
-elog = new EventDataLog()
+elog = new Psy.EventDataLog()
 elog.push(tmp1)
 elog.push(tmp2)
 
@@ -224,8 +203,8 @@ class Timeout extends Response
 
 exports.Prompt =
 class Prompt extends Response
-  constructor: (@spec = {}) ->
-    @spec = _.defaults(@spec, { title: "", delay: 0, defaultValue: "" })
+  constructor: (spec = {}) ->
+    super(spec, { title: "", delay: 0, defaultValue: "" })
 
   activate: (context) ->
     deferred = Q.defer()
@@ -244,8 +223,8 @@ class Prompt extends Response
 
 exports.Confirm =
   class Confirm extends Response
-    constructor: (@spec = {}) ->
-      @spec = _.defaults(@spec, { message: "", delay: 0, defaultValue: "" })
+    constructor: (spec = {}) ->
+      super(spec, { message: "", delay: 0, defaultValue: "" })
 
     activate: (context) ->
       deferred = Q.defer()
@@ -264,8 +243,8 @@ exports.Confirm =
 
 exports.TypedResponse =
 class TypedResponse
-  constructor: (@spec = {}) ->
-    @spec = _.defaults(@spec, { left: 250, top: 250, defaultValue: "" })
+  constructor: (spec = {}) ->
+    super(spec,  { left: 250, top: 250, defaultValue: "" })
 
   activate: (context) ->
     deferred = Q.defer()
@@ -303,7 +282,9 @@ class TypedResponse
 
 exports.MousePressResponse =
 class MousePressResponse extends Response
+
   constructor: ->
+    super({}, {})
 
   activate: (context) ->
     deferred = Q.de fer()
@@ -328,11 +309,13 @@ class KeyPressResponse extends Response
       _.contains(@spec.keys, char)).take(1).onValue((filtered) =>
                                 Acc = _.contains(@spec.correct, String.fromCharCode(filtered.keyCode))
                                 timestamp = getTimestamp()
-                                resp = new EventData("KeyPress", @id,
+                                resp = new Psy.EventData("KeyPress", @id,
                                   KeyTime: timestamp
                                   RT: timestamp - @startTime
                                   Accuracy: Acc
                                   KeyChar: String.fromCharCode(filtered.keyCode))
+
+                                context.pushEventData(resp)
 
                                 context.logEvent("KeyPress", getTimestamp())
                                 context.logEvent("$ACC", Acc)
@@ -343,7 +326,8 @@ class KeyPressResponse extends Response
 
 exports.SpaceKeyResponse =
 class SpaceKeyResponse extends Response
-  constructor: (@spec = {}) ->
+  constructor: (spec = {}) ->
+    super(spec, {})
 
   activate: (context) ->
 
@@ -360,6 +344,7 @@ class SpaceKeyResponse extends Response
 exports.FirstResponse =
 class FirstResponse extends Response
   constructor: (@responses) ->
+    super({}, {})
 
   activate: (context) ->
     deferred = Q.defer()
@@ -368,13 +353,13 @@ class FirstResponse extends Response
 
 exports.ClickResponse =
 class ClickResponse extends Response
-  constructor: (@id) ->
+  constructor: (@refid) ->
 
   activate: (context) ->
-    element = context.stage.get("#" + @id)
+    element = context.stage.get("#" + @refid)
 
     if not element
-      throw "cannot find element with id" + @id
+      throw "cannot find element with id" + @refid
 
     deferred = Q.defer()
     element.on "click", (ev) =>
@@ -384,12 +369,10 @@ class ClickResponse extends Response
     deferred.promise
 
 
-
 exports.GridLines =
 class GridLines extends Stimulus
   constructor: (spec = {}) ->
-    @spec = _.defaults(spec, { x: 0, y: 0, rows: 3, cols: 3, stroke: "black", strokeWidth: 2})
-
+    super(spec, { x: 0, y: 0, rows: 3, cols: 3, stroke: "black", strokeWidth: 2})
 
   render: (context, layer) ->
     for i in [0..@spec.rows]
@@ -421,8 +404,7 @@ exports.TextInput =
 class TextInput extends Stimulus
   constructor: (spec = {}) ->
     disableBrowserBack()
-    @spec = _.defaults(spec, { x: 100, y: 100, width: 200, height: 40, defaultValue: "", fill: "#FAF5E6", stroke: "#0099FF", strokeWidth: 1, content: "" })
-
+    super(spec, { x: 100, y: 100, width: 200, height: 40, defaultValue: "", fill: "#FAF5E6", stroke: "#0099FF", strokeWidth: 1, content: "" })
 
   getChar: (e) ->
     # key is not shift
@@ -523,7 +505,7 @@ class Sound
 exports.Picture =
 class Picture extends Stimulus
   constructor: (spec = {} ) ->
-    @spec = _.defaults(spec, { url: "http://www.html5canvastutorials.com/demos/assets/yoda.jpg", x:0, y: 0 })
+    super(spec, { url: "http://www.html5canvastutorials.com/demos/assets/yoda.jpg", x:0, y: 0 })
     @imageObj = new Image()
     @image = null
 
@@ -544,6 +526,8 @@ class Picture extends Stimulus
   render: (context, layer) ->
     layer.add(@image)
     #context.contentLayer.draw()
+
+
 
 
 exports.Group =
@@ -570,6 +554,7 @@ exports.Background =
 class Background extends Stimulus
 
   constructor:  (@stims=[], @fill= "white") ->
+    super({}, {})
 
   render: (context, layer) ->
     background = new Kinetic.Rect({
@@ -590,9 +575,9 @@ class Background extends Stimulus
 
 exports.Sequence =
 class Sequence extends Stimulus
-  stopped: false
 
   constructor: (@stims, @soa, @clear=true, @times=1) ->
+    super({}, {})
     if (@soa.length != @stims.length)
       @soa = Psy.repLen(@soa, @stims.length)
 
@@ -630,14 +615,14 @@ class Sequence extends Stimulus
       result = result.then(=> @genseq(context,layer))
     result
 
-  stop: -> @stopped = true
+  #stop: (context) -> @stopped = true
 
 
 exports.Blank =
 class Blank extends Stimulus
 
   constructor: (spec={}) ->
-    @spec = _.defaults(spec, { fill: "white" })
+    super(spec, { fill: "white" })
 
 
   render: (context, layer) ->
@@ -647,7 +632,8 @@ class Blank extends Stimulus
 
 exports.Clear =
 class Clear extends Stimulus
-  constructor: (@spec = {}) ->
+  constructor: (spec = {}) ->
+    super(spec, {})
 
   render: (context, layer) ->
     context.clearContent(true)
@@ -655,7 +641,7 @@ class Clear extends Stimulus
 exports.Arrow =
 class Arrow extends Stimulus
   constructor: (spec={}) ->
-    @spec = _.defaults(spec, { x: 100, y: 100, length: 100, angle: 0, thickness: 40, fill: "red", arrowSize: 50})
+    super(spec, { x: 100, y: 100, length: 100, angle: 0, thickness: 40, fill: "red", arrowSize: 50})
 
   render: (context, layer) ->
     rect = new Kinetic.Rect({x: 0, y: 0, width: @spec.length, height: @spec.thickness, fill: @spec.fill, stroke: @spec.stroke, strokeWidth: @spec.strokeWidth, opacity: @spec.opacity})
@@ -711,7 +697,7 @@ class Rectangle extends Stimulus
 exports.Circle =
 class Circle extends Stimulus
     constructor: (spec = {}) ->
-      @spec = _.defaults(spec, { x: 100, y: 100, radius: 50, fill: 'red', opacity: 1})
+      super(spec, { x: 100, y: 100, radius: 50, fill: 'red', opacity: 1})
 
     render: (context, layer) ->
       circ = new Kinetic.Circle({ x: @spec.x, y: @spec.y, radius: @spec.radius, fill: @spec.fill, stroke: @spec.stroke, strokeWidth: @spec.strokeWidth, opacity: @spec.opacity })
@@ -742,7 +728,7 @@ class FixationCross extends Stimulus
 exports.CanvasBorder =
 class CanvasBorder extends Stimulus
   constructor: (spec = {}) ->
-    @spec = _.defaults(spec, { strokeWidth: 5, stroke: "black" })
+    super(spec, { strokeWidth: 5, stroke: "black" })
 
   render: (context, layer) ->
     border = new Kinetic.Rect({ x: 0, y: 0, width: context.width(), height: context.height(), strokeWidth: @spec.strokeWidth, stroke: @spec.stroke })
@@ -752,8 +738,7 @@ class CanvasBorder extends Stimulus
 exports.StartButton =
 class StartButton extends Stimulus
   constructor: (spec = {}) ->
-
-    @spec = _.defaults(spec, { width: 150, height: 75 })
+    super(spec, { width: 150, height: 75 })
 
   render: (context, layer) ->
 
@@ -787,8 +772,7 @@ position = (pos, offx, offy, width, height, xy) ->
 exports.Text =
 class Text extends Stimulus
   constructor: (spec = {}) ->
-    @spec = _.defaults(spec, { content: "Text", x: 5, y: 5, width: null, fill: "black", fontSize: 50, fontFamily: "Arial", lineHeight: 1, textAlign: "center", position: null} )
-
+    super(spec, { content: "Text", x: 5, y: 5, width: null, fill: "black", fontSize: 50, fontFamily: "Arial", lineHeight: 1, textAlign: "center", position: null} )
 
   render: (context, layer) ->
     #console.log("trial meta ", context.currentTrial.meta)
@@ -814,14 +798,32 @@ class Text extends Stimulus
 
 
 exports.Paragraph =
-class Paragraph extends Stimulus
+class Paragraph extends exports.Stimulus
   constructor: (spec = {}) ->
-    @spec = _.defaults(spec, { content: "", x: 50, y: 50, width: 600, fill: "black", fontSize: 18, fontFamily: "Arial", lineHeight: 1, textAlign: "center", position: null} )
+    super(spec, { content: "", x: 50, y: 50, width: 600, fill: "black", fontSize: 18, fontFamily: "Arial", lineHeight: 1, textAlign: "center", position: null} )
 
 exports.Markdown =
-class Markdown extends Stimulus
-  constructor: (input) ->
-    @html = markdown.toHTML(input)
+class Markdown extends exports.Stimulus
+  constructor: (spec={}) ->
+    super(spec, {})
+    if _.isString(spec)
+      @spec = {}
+      @spec.content = spec
+
+    if @spec.url?
+      $.ajax(
+        url: @spec.url
+        success: (result) =>
+          @spec.content = result
+          @html = markdown.toHTML(@spec.content)
+        error: (result) =>
+          console.log("ajax failure", result)
+      )
+    else
+      @html = markdown.toHTML(@spec.content)
+
+
+
 
   render: (context, layer) ->
     console.log(@html)
@@ -829,11 +831,101 @@ class Markdown extends Stimulus
     context.appendHtml(@html)
 
 
+exports.Instructions =
+class Instructions extends exports.Response
+  constructor: (spec={}) ->
+    super(spec, {})
+
+    @pages = for key, value of @spec.pages
+
+      md = new Markdown(value)
+      div=$("<div></div>")
+
+      $(div).addClass("ui stacked segment").append(md.html)
+
+    @back = $("""<div class="ui green disabled labeled icon button"><i class="left arrow icon"></i>Back</div>""").attr("id", "instructions_back")
+    @next = $("""<div class="ui green right labeled icon button"><i class="right arrow icon"></i>Next</div>""").attr("id", "instructions_next")
+    @nav = $("<div></div>").append(@back).append("\n").append(@next).css("position", "absolute").css("right", "0px")
+
+
+    @currentPage = 0
+
+  activate: (context) ->
+
+    @deferred = Q.defer()
+    @deferred.promise
+
+  render: (context, layer) ->
+    @next.click (e) =>
+      if (@currentPage < (@pages.length-1))
+        @currentPage += 1
+        context.clearHtml()
+        @render(context)
+      else
+        @deferred.resolve(0)
+
+    @back.click (e) =>
+      console.log("back click!")
+      if (@currentPage > 0)
+        @currentPage -= 1
+        context.clearHtml()
+        @render(context)
+
+    @back.removeClass("disabled") if @currentPage > 0
+
+    $(@pages[@currentPage]).css(
+      "min-height": context.height() - 50
+    )
+
+    context.appendHtml(@pages[@currentPage])
+    context.appendHtml(@nav)
+
+
+
+
+
+
+exports.HtmlLink =
+class HtmlLink extends exports.Stimulus
+  constructor: (spec={}) ->
+    super(spec, {label: "link"})
+    @html = $("""<a href='#'>#{@spec.label}</a>""")
+
+    if (@spec.x? and @spec.y)
+      @html.css({
+        position: "absolute"
+        left: @spec.x
+        top: @spec.y
+      })
+
+  render: (context, layer) ->
+    context.appendHtml(@html)
+
+
+exports.HtmlButton =
+  class HtmlButton extends exports.Stimulus
+    constructor: (spec={}) ->
+      super(spec, {label: "Next", class: ""})
+
+      @html = $("""<div class='ui button'>
+               #{@spec.label}</div>""")
+
+      if (@spec.x? and @spec.y)
+        @html.css({
+          position: "absolute"
+          left: @spec.x
+          top: @spec.y
+        }).addClass(@spec.class)
+
+    render: (context, layer) ->
+      context.appendHtml(@html)
+
+
 
 exports.MultipleChoice =
-class MultipleChoice extends Stimulus
+class MultipleChoice extends exports.Stimulus
   constructor: (spec={}) ->
-    @spec = _.defaults(spec, { question: "What is your name?", options: ["Bill", "John", "Fred"], x: 10, y: 10, fill: "black", fontSize: 24, fontFamily: "Arial", textAlign: "center", position: null} )
+    super(spec, { question: "What is your name?", options: ["Bill", "John", "Fred"], x: 10, y: 10, fill: "black", fontSize: 24, fontFamily: "Arial", textAlign: "center", position: null})
 
   render: (context, layer) ->
     questionText = new Kinetic.Text({
@@ -862,15 +954,16 @@ class MultipleChoice extends Stimulus
       layer.add(choice)
 
 
+
+
 exports.KineticContext =
 class KineticContext extends Psy.ExperimentContext
 
   constructor: (@stage) ->
+    super(new KineticStimFactory())
     @contentLayer = new Kinetic.Layer({clearBeforeDraw: true})
     @backgroundLayer = new Kinetic.Layer({clearBeforeDraw: true})
     @background = new Background([], fill: "white")
-
-
 
     @stage.add(@backgroundLayer)
     @stage.add(@contentLayer)
@@ -895,15 +988,17 @@ class KineticContext extends Psy.ExperimentContext
 
 
     $("#container" ).append("""
-      <div id="htmlcontainer" class="htmllayer">
-              <p>This <em>is</em> heading 1</p>
-
-      </div>
+      <div id="htmlcontainer" class="htmllayer"></div>
       """)
-    $("#htmlcontainer").css("position", "absolute")
-    $("#htmlcontainer").css("z-index", 999)
+
+    $("#htmlcontainer").css(
+      position: "absolute"
+      "z-index": 999
+      outline: "none"
+    )
+
     $("#container").attr("tabindex", 0)
-    #$("#container").css("outline", "none")
+    $("#container").css("outline", "none")
 
 
   clearHtml: ->
@@ -931,8 +1026,8 @@ class KineticContext extends Psy.ExperimentContext
     @backgroundLayer.removeChildren()
 
   clearContent: (draw=false) ->
-
     @hideHtml()
+    #@clearHtml()
     @contentLayer.removeChildren()
     if draw
       @draw()
@@ -993,6 +1088,10 @@ class KineticStimFactory extends Psy.StimFactory
       when "Grid"
         new GridLayout(params[0], params[1], {x: 0, y: 0, width: context.width(), height: context.height()})
 
+  makeInstructions: (spec) ->
+    new Instructions(spec)
+
+
   makeStimulus: (name, params, context) ->
 
     callee = arguments.callee
@@ -1013,6 +1112,7 @@ class KineticStimFactory extends Psy.StimFactory
 
         new Group(stims, @makeLayout(layoutName, layoutParams, context))
       else throw "No Stimulus type of name #{name}"
+
   makeResponse: (name, params, context) ->
     switch name
       when "KeyPress" then new KeyPressResponse(params)
@@ -1023,10 +1123,10 @@ class KineticStimFactory extends Psy.StimFactory
 
 
 
-x = new Timeout({duration: 22})
-prom = x.activate()
-prom.then( (resp) ->
-  console.log("resp", resp)
-)
+#x = new Timeout({duration: 22})
+#prom = x.activate()
+#prom.then( (resp) ->
+#  console.log("resp", resp)
+#)
 
-console.log(new Response().id)
+#console.log(new Response().id)

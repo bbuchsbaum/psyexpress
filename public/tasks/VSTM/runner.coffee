@@ -26,6 +26,36 @@ factorSet =
 
 window.display =
   Display:
+    Instructions:
+      pages:
+        1: """
+
+          Welcome to the Experiment!
+          ==========================
+
+          This is a test of visual short-term memory.
+
+          On every trial a number of colored squares will be briefly presented on the screen.
+          Try to remember their colors. After the set of squares dissappear, a single 'probe'
+          square will appear at one the locations previously occupied by one of the
+          squares. You will have to decide whether the 'probe' square is the same color as the square
+          that previously occupied the same spatial location.
+
+          * If the probe square is the same color ( a match), press the 'n' key.
+
+          * If the probe square is a different color ( a non match), press the 'm' key.
+
+          * If your response is correct, you will will get a "Correct!" message, otherwise you will get an "Incorrect!" message.
+
+        """
+
+
+    #Block: (context) ->
+    #  Start: null
+    #
+    #  End: null
+
+
     Trial: (trial) =>
 
       pos = coordSampler.take(trial.load)
@@ -38,13 +68,9 @@ window.display =
         probeColor = colors[probeIndex]
       else
         setdiff = _.difference(clrs, [colors[probeIndex]])
-        console.log("setdiff is", setdiff)
-        console.log("all colors", clrs)
         probeColor = Psy.sample(setdiff,1)[0]
 
 
-      console.log("probe color", probeColor)
-      console.log("trial.probe", trial.probe)
       Events:
         1:
           FixationCross: length: 100, strokeWidth: 5
@@ -66,8 +92,8 @@ window.display =
             Timeout:
               duration: 1500
         3:
-          Clear:
-            x: 0
+          Clear: null
+
           Next:
             Timeout:
               duration: 800
@@ -90,6 +116,18 @@ window.display =
               keys: ['n', 'm']
               correct: if trial.probe is "match" then 'n' else 'm'
               timeout: 3000
+
+      Feedback: (eventStack) ->
+        ev = eventStack.last()
+        Text:
+          content: if ev.Accuracy is true then "Correct!" else "Incorrrect!"
+          fill: if ev.Accuracy then "green" else "red"
+          position: "center"
+        Next:
+          Timeout: duration: 1000
+
+
+
 
 
 

@@ -51,9 +51,10 @@
       };
     }();
   require.define('/main.coffee', function (module, exports, __dirname, __filename) {
-    var Exp, key, key, Psy, value, value;
+    var Dots, Exp, key, key, key, Psy, value, value, value;
     Exp = require('/Elements.js', module);
     Psy = require('/PsyCloud.js', module);
+    Dots = require('/DotMotion.js', module);
     for (key in Psy) {
       value = Psy[key];
       exports[key] = value;
@@ -62,10 +63,14 @@
       value = Exp[key];
       exports[key] = value;
     }
+    for (key in Dots) {
+      value = Dots[key];
+      exports[key] = value;
+    }
   });
   require.define('/PsyCloud.js', function (module, exports, __dirname, __filename) {
     (function () {
-      var ArrayIterator, CellTable, CombinatoricSampler, ConditionalSampler, DataTable, Event, ExhaustiveSampler, ExpDesign, Experiment, ExperimentContext, Factor, FactorNode, FactorSetNode, FactorSpec, GridSampler, ItemNode, Iterator, MatchSampler, MockStimFactory, Presenter, Q, Sampler, StimFactory, TaskNode, TaskSchema, Trial, TrialList, UniformSampler, VarSpec, VariablesNode, asArray, clone, deferred, des, msam, permute, prom, prom2, prom3, rep, repLen, sam, sample, _, _i, _ref, _results, __hasProp = {}.hasOwnProperty, __extends = function (child, parent) {
+      var ActionNode, ArrayIterator, Block, CellTable, CombinatoricSampler, ConditionalSampler, DataTable, Event, EventData, EventDataLog, ExhaustiveSampler, ExpDesign, Experiment, ExperimentContext, Factor, FactorNode, FactorSetNode, FactorSpec, GridSampler, ItemNode, Iterator, MatchSampler, MockStimFactory, Presenter, Q, Sampler, StimFactory, TaskNode, TaskSchema, Trial, TrialList, UniformSampler, VarSpec, VariablesNode, asArray, clone, deferred, des, msam, permute, prom, prom2, prom3, rep, repLen, sam, sample, _, _i, _ref, _results, __hasProp = {}.hasOwnProperty, __extends = function (child, parent) {
           for (var key in parent) {
             if (__hasProp.call(parent, key))
               child[key] = parent[key];
@@ -213,6 +218,38 @@
         2,
         3
       ]));
+      exports.EventData = EventData = function () {
+        function EventData(name, id, data) {
+          this.name = name;
+          this.id = id;
+          this.data = data;
+        }
+        return EventData;
+      }();
+      exports.EventDataLog = EventDataLog = function () {
+        function EventDataLog() {
+          this.eventStack = [];
+        }
+        EventDataLog.prototype.push = function (ev) {
+          return this.eventStack.push(ev);
+        };
+        EventDataLog.prototype.last = function () {
+          if (this.eventStack.length < 1) {
+            throw 'EventLog is Empty, canot access last element';
+          }
+          return this.eventStack[this.eventStack.length - 1].data;
+        };
+        EventDataLog.prototype.findLast = function (id) {
+          var i, len, _i;
+          len = this.eventStack.length - 1;
+          for (i = _i = len; len <= 0 ? _i <= 0 : _i >= 0; i = len <= 0 ? ++_i : --_i) {
+            if (this.eventStack[i].id === id) {
+              return this.eventStack[i];
+            }
+          }
+        };
+        return EventDataLog;
+      }();
       exports.Sampler = Sampler = function () {
         function Sampler(items) {
           this.items = items;
@@ -722,11 +759,34 @@
       exports.StimFactory = StimFactory = function () {
         function StimFactory() {
         }
+        StimFactory.prototype.buildStimulus = function (spec, context) {
+          var params, stimType;
+          stimType = _.keys(spec)[0];
+          params = _.values(spec)[0];
+          return this.makeStimulus(stimType, params, context);
+        };
+        StimFactory.prototype.buildResponse = function (spec, context) {
+          var params, responseType;
+          responseType = _.keys(spec)[0];
+          params = _.values(spec)[0];
+          return this.makeResponse(responseType, params, context);
+        };
+        StimFactory.prototype.buildEvent = function (spec, context) {
+          var response, responseSpec, stim, stimSpec;
+          stimSpec = _.omit(spec, 'Next');
+          responseSpec = _.pick(spec, 'Next');
+          stim = this.buildStimulus(stimSpec, context);
+          response = this.buildResponse(responseSpec.Next, context);
+          return this.makeEvent(stim, response, context);
+        };
         StimFactory.prototype.makeStimulus = function (name, params, context) {
+          throw 'unimplemented';
         };
         StimFactory.prototype.makeResponse = function (name, params, context) {
+          throw 'unimplemented';
         };
         StimFactory.prototype.makeEvent = function (stim, response, context) {
+          throw 'unimplemented';
         };
         return StimFactory;
       }();
@@ -756,38 +816,47 @@
         };
         return MockStimFactory;
       }(StimFactory);
-      exports.Event = Event = function () {
+      exports.ActionNode = ActionNode = function () {
+        function ActionNode() {
+        }
+        ActionNode.prototype.start = function (context) {
+        };
+        ActionNode.prototype.stop = function (context) {
+        };
+        return ActionNode;
+      }();
+      exports.Event = Event = function (_super) {
+        __extends(Event, _super);
         function Event(stimulus, response) {
           this.stimulus = stimulus;
           this.response = response;
         }
-        Event.prototype.stop = function () {
-          this.stimulus.stop();
-          return this.response.stop();
+        Event.prototype.stop = function (context) {
+          this.stimulus.stop(context);
+          return this.response.stop(context);
         };
         Event.prototype.start = function (context) {
           var _this = this;
-          console.log('starting event', this.stimulus);
           if (!this.stimulus.overlay) {
-            console.log('clearing event content');
             context.clearContent();
           }
-          console.log('rendering event');
           this.stimulus.render(context, context.contentLayer);
           context.draw();
-          console.log('activating response');
           return this.response.activate(context).then(function (ret) {
-            console.log('response is ', ret);
-            _this.stimulus.stop();
+            _this.stimulus.stop(context);
             return ret;
+          }, function (err) {
+            throw new Error('Error during Response activation');
           });
         };
         return Event;
-      }();
-      exports.Trial = Trial = function () {
-        function Trial(events, meta, background) {
+      }(ActionNode);
+      exports.Trial = Trial = function (_super) {
+        __extends(Trial, _super);
+        function Trial(events, meta, feedback, background) {
           this.events = events != null ? events : [];
           this.meta = meta != null ? meta : {};
+          this.feedback = feedback;
           this.background = background;
         }
         Trial.prototype.numEvents = function () {
@@ -798,7 +867,6 @@
         };
         Trial.prototype.start = function (context) {
           var farray, fun, result, _j, _len, _this = this;
-          console.log('starting trial');
           context.clearBackground();
           if (this.background) {
             context.setBackground(this.background);
@@ -812,34 +880,71 @@
           result = Q.resolve(0);
           for (_j = 0, _len = farray.length; _j < _len; _j++) {
             fun = farray[_j];
-            result = result.then(fun);
+            result = result.then(fun, function (err) {
+              throw new Error('Error during Trial execution: ', err);
+            });
+          }
+          if (this.feedback != null) {
+            result = result.then(function (x) {
+              var event, spec;
+              spec = _this.feedback(context.eventData);
+              event = context.stimFactory.buildEvent(spec, context);
+              return event.start(context);
+            }, function (err) {
+              throw new Error('Error during Feedback execution: ', err);
+            });
           }
           return result;
         };
-        Trial.prototype.stop = function () {
-          var ev, _j, _len, _ref1, _results1;
-          _ref1 = this.events;
-          _results1 = [];
-          for (_j = 0, _len = _ref1.length; _j < _len; _j++) {
-            ev = _ref1[_j];
-            _results1.push(ev.stop());
-          }
-          return _results1;
+        Trial.prototype.stop = function (context) {
         };
         return Trial;
-      }();
-      exports.ExperimentContext = ExperimentContext = function () {
-        function ExperimentContext() {
+      }(ActionNode);
+      exports.Block = Block = function (_super) {
+        __extends(Block, _super);
+        function Block(trials) {
+          this.trials = trials;
         }
-        ExperimentContext.prototype.eventLog = [];
-        ExperimentContext.prototype.trialNumber = 0;
-        ExperimentContext.prototype.currentTrial = new Trial([], {});
+        Block.prototype.start = function (context) {
+          var farray, fun, result, _j, _len, _this = this;
+          farray = _.map(this.trials, function (trial) {
+            return function () {
+              return trial.start(context);
+            };
+          });
+          result = Q.resolve(0);
+          for (_j = 0, _len = farray.length; _j < _len; _j++) {
+            fun = farray[_j];
+            result = result.then(fun, function (err) {
+              throw new Error('Error during Block execution: ', err);
+            });
+          }
+          return result;
+        };
+        Block.prototype.stop = function (context) {
+        };
+        return Block;
+      }(ActionNode);
+      exports.ExperimentContext = ExperimentContext = function () {
+        function ExperimentContext(stimFactory) {
+          this.stimFactory = stimFactory;
+          this.eventData = new EventDataLog;
+          this.log = [];
+          this.trialNumber = 0;
+          this.currentTrial = new Trial([], {});
+        }
+        ExperimentContext.prototype.pushEventData = function (ev) {
+          return this.eventData.push(ev);
+        };
         ExperimentContext.prototype.logEvent = function (key, value) {
           var record;
           record = _.clone(this.currentTrial.meta);
           record[key] = value;
-          this.eventLog.push(record);
-          return console.log(this.eventLog);
+          this.log.push(record);
+          return console.log(this.log);
+        };
+        ExperimentContext.prototype.showEvent = function (event) {
+          return event.start(this);
         };
         ExperimentContext.prototype.start = function (trialList) {
           var fun, funList, result, _j, _len, _this = this;
@@ -853,7 +958,6 @@
           result = Q.resolve(0);
           for (_j = 0, _len = funList.length; _j < _len; _j++) {
             fun = funList[_j];
-            console.log('building trial list');
             result = result.then(fun);
           }
           return result;
@@ -878,22 +982,31 @@
           this.display = display;
           this.stimFactory = stimFactory != null ? stimFactory : new MockStimFactory;
           this.trialBuilder = this.display.Trial;
+          if (this.display.Instructions != null) {
+            this.instructions = this.stimFactory.makeInstructions(this.display.Instructions);
+          }
         }
-        Presenter.prototype.buildStimulus = function (event, context) {
+        Presenter.prototype.buildStimulus = function (spec, context) {
           var params, stimType;
-          stimType = _.keys(event)[0];
-          params = _.values(event)[0];
-          console.log('making stim', stimType);
-          console.log('params', params);
+          stimType = _.keys(spec)[0];
+          params = _.values(spec)[0];
           return this.stimFactory.makeStimulus(stimType, params, context);
         };
-        Presenter.prototype.buildEvent = function (event, context) {
+        Presenter.prototype.buildResponse = function (spec, context) {
           var params, responseType;
-          responseType = _.keys(event)[0];
-          params = _.values(event)[0];
+          responseType = _.keys(spec)[0];
+          params = _.values(spec)[0];
           return this.stimFactory.makeResponse(responseType, params, context);
         };
-        Presenter.prototype.buildTrial = function (eventSpec, record, context) {
+        Presenter.prototype.buildEvent = function (spec, context) {
+          var response, responseSpec, stim, stimSpec;
+          stimSpec = _.omit(value, 'Next');
+          responseSpec = _.pick(value, 'Next');
+          stim = this.buildStimulus(stimSpec, context);
+          response = this.buildResponse(responseSpec, context);
+          return this.stimFactory.makeEvent(stim, response, context);
+        };
+        Presenter.prototype.buildTrial = function (eventSpec, record, context, feedback) {
           var events, key, response, responseSpec, stim, stimSpec, value;
           events = function () {
             var _results1;
@@ -903,15 +1016,15 @@
               stimSpec = _.omit(value, 'Next');
               responseSpec = _.pick(value, 'Next');
               stim = this.buildStimulus(stimSpec, context);
-              response = this.buildEvent(responseSpec.Next, context);
+              response = this.buildResponse(responseSpec.Next, context);
               _results1.push(this.stimFactory.makeEvent(stim, response, context));
             }
             return _results1;
           }.call(this);
-          return new Trial(events, record, new Psy.Background([], 'gray'));
+          return new Trial(events, record, feedback, new Psy.Background([], 'gray'));
         };
         Presenter.prototype.start = function (context) {
-          var block, record, tlist, trial, trialNum, trialSpec;
+          var block, instructionsEvent, record, tlist, trial, trialNum, trialSpec, _this = this;
           tlist = function () {
             var _j, _len, _ref1, _results1;
             _ref1 = this.trialList.blocks;
@@ -922,14 +1035,10 @@
                 var _k, _ref2, _results2;
                 _results2 = [];
                 for (trialNum = _k = 0, _ref2 = block.length; 0 <= _ref2 ? _k < _ref2 : _k > _ref2; trialNum = 0 <= _ref2 ? ++_k : --_k) {
-                  console.log('tnum', trialNum);
                   record = _.clone(block[trialNum]);
                   record.$trialNumber = trialNum;
-                  console.log('record', record);
                   trialSpec = this.trialBuilder(record);
-                  console.log('tspec', trialSpec);
-                  trial = this.buildTrial(trialSpec.Events, record, context);
-                  console.log('trial', trial);
+                  trial = this.buildTrial(trialSpec.Events, record, context, trialSpec.Feedback);
                   _results2.push(trial);
                 }
                 return _results2;
@@ -937,8 +1046,14 @@
             }
             return _results1;
           }.call(this);
-          console.log(tlist[0]);
-          return context.start(tlist[0]);
+          if (this.instructions != null) {
+            instructionsEvent = this.stimFactory.makeEvent(this.instructions, this.instructions, context);
+            return context.showEvent(instructionsEvent).then(function () {
+              return context.start(tlist[0]);
+            });
+          } else {
+            return context.start(tlist[0]);
+          }
         };
         return Presenter;
       }();
@@ -972,7 +1087,7 @@
               stimSpec = _.omit(value, 'Next');
               responseSpec = _.pick(value, 'Next');
               stim = this.buildStimulus(stimSpec);
-              response = this.buildEvent(responseSpec.Next);
+              response = this.buildResponse(responseSpec.Next);
               _results1.push(this.stimFactory.makeEvent(stim, response));
             }
             return _results1;
@@ -4307,7 +4422,7 @@
   });
   require.define('/Elements.js', function (module, exports, __dirname, __filename) {
     (function () {
-      var AbsoluteLayout, Arrow, Background, Bacon, Blank, CanvasBorder, Circle, Clear, ClickResponse, Confirm, EventData, EventDataLog, FirstResponse, FixationCross, GridLayout, GridLines, Group, KeyPressResponse, KineticContext, KineticStimFactory, Layout, Markdown, MousePressResponse, MultipleChoice, Paragraph, Picture, Prompt, Psy, Q, Rectangle, Response, Sequence, Sound, SpaceKeyResponse, StartButton, Stimulus, Text, TextInput, Timeout, TypedResponse, computeGridCells, convertPercentageToFraction, convertToCoordinate, disableBrowserBack, doTimer, elog, getTimestamp, isPercentage, position, prom, tmp1, tmp2, tmp3, x, _, _ref, _ref1, __hasProp = {}.hasOwnProperty, __extends = function (child, parent) {
+      var AbsoluteLayout, Arrow, Background, Bacon, Blank, CanvasBorder, Circle, Clear, ClickResponse, Confirm, FirstResponse, FixationCross, GridLayout, GridLines, Group, HtmlButton, HtmlLink, Instructions, KeyPressResponse, KineticContext, KineticStimFactory, Layout, Markdown, MousePressResponse, MultipleChoice, Paragraph, Picture, Prompt, Psy, Q, Rectangle, Response, Sequence, Sound, SpaceKeyResponse, StartButton, Stimulus, Text, TextInput, Timeout, TypedResponse, computeGridCells, convertPercentageToFraction, convertToCoordinate, disableBrowserBack, doTimer, elog, getTimestamp, isPercentage, markdown, position, tmp1, tmp2, tmp3, _, _ref, _ref1, _ref2, _ref3, __hasProp = {}.hasOwnProperty, __extends = function (child, parent) {
           for (var key in parent) {
             if (__hasProp.call(parent, key))
               child[key] = parent[key];
@@ -4324,12 +4439,13 @@
       Bacon = require('/lib/Bacon.js', module).Bacon;
       _ = require('/../node_modules/lodash/dist/lodash.js', module);
       Q = require('/../node_modules/q/q.js', module);
-      if (typeof window !== 'undefined' && window !== null ? window.performance.now : void 0) {
+      markdown = require('/lib/markdown.js', module).markdown;
+      if (typeof window !== 'undefined' && window !== null ? (_ref = window.performance) != null ? _ref.now : void 0 : void 0) {
         console.log('Using high performance timer');
         getTimestamp = function () {
           return window.performance.now();
         };
-      } else if (typeof window !== 'undefined' && window !== null ? window.performance.webkitNow : void 0) {
+      } else if (typeof window !== 'undefined' && window !== null ? (_ref1 = window.performance) != null ? _ref1.webkitNow : void 0 : void 0) {
         console.log('Using webkit high performance timer');
         getTimestamp = function () {
           return window.performance.webkitNow();
@@ -4343,7 +4459,6 @@
       doTimer = function (length, oncomplete) {
         var instance, start;
         start = getTimestamp();
-        console.log('starting timer');
         instance = function () {
           var diff, half;
           diff = getTimestamp() - start;
@@ -4421,8 +4536,8 @@
       exports.AbsoluteLayout = AbsoluteLayout = function (_super) {
         __extends(AbsoluteLayout, _super);
         function AbsoluteLayout() {
-          _ref = AbsoluteLayout.__super__.constructor.apply(this, arguments);
-          return _ref;
+          _ref2 = AbsoluteLayout.__super__.constructor.apply(this, arguments);
+          return _ref2;
         }
         AbsoluteLayout.prototype.computePosition = function (dim, constraints) {
           var x, y;
@@ -4434,7 +4549,7 @@
           ];
         };
         return AbsoluteLayout;
-      }(Layout);
+      }(exports.Layout);
       exports.GridLayout = GridLayout = function (_super) {
         __extends(GridLayout, _super);
         function GridLayout(rows, cols, bounds) {
@@ -4461,15 +4576,12 @@
           ];
         };
         return GridLayout;
-      }(Layout);
+      }(exports.Layout);
       exports.Stimulus = Stimulus = function () {
         function Stimulus(spec, defaultArgs) {
-          var _ref1;
-          console.log('spec is ', spec);
-          console.log('default args', defaultArgs);
+          var _ref3;
           this.spec = _.defaults(spec, defaultArgs);
-          console.log('spec is now ', this.spec);
-          if (((_ref1 = this.spec) != null ? _ref1.id : void 0) != null) {
+          if (((_ref3 = this.spec) != null ? _ref3.id : void 0) != null) {
             this.id = this.spec.id;
           } else {
             this.id = _.uniqueId('stim_');
@@ -4503,7 +4615,7 @@
         };
         Stimulus.prototype.render = function (context, layer) {
         };
-        Stimulus.prototype.stop = function () {
+        Stimulus.prototype.stop = function (context) {
           return this.stopped = true;
         };
         return Stimulus;
@@ -4517,42 +4629,10 @@
         };
         return Response;
       }(Stimulus);
-      exports.EventData = EventData = function () {
-        function EventData(name, id, data) {
-          this.name = name;
-          this.id = id;
-          this.data = data;
-        }
-        return EventData;
-      }();
-      exports.EventDataLog = EventDataLog = function () {
-        function EventDataLog() {
-          this.events = [];
-        }
-        EventDataLog.prototype.push = function (event) {
-          return this.events.push(event);
-        };
-        EventDataLog.prototype.last = function () {
-          if (this.events.length < 1) {
-            throw 'EventLog is Empty, canot access last element';
-          }
-          return this.events[this.events.length - 1];
-        };
-        EventDataLog.prototype.findLast = function (id) {
-          var i, len, _i;
-          len = this.events.length - 1;
-          for (i = _i = len; len <= 0 ? _i <= 0 : _i >= 0; i = len <= 0 ? ++_i : --_i) {
-            if (this.events[i].id === id) {
-              return this.events[i];
-            }
-          }
-        };
-        return EventDataLog;
-      }();
-      tmp1 = new EventData('hello', '24', { x: 8 });
-      tmp2 = new EventData('goodbye', '24', { x: 8 });
-      tmp3 = new EventData('goyyyyyy', '29', { x: 8 });
-      elog = new EventDataLog;
+      tmp1 = new Psy.EventData('hello', '24', { x: 8 });
+      tmp2 = new Psy.EventData('goodbye', '24', { x: 8 });
+      tmp3 = new Psy.EventData('goyyyyyy', '29', { x: 8 });
+      elog = new Psy.EventDataLog;
       elog.push(tmp1);
       elog.push(tmp2);
       console.log('elog last', elog.last());
@@ -4584,8 +4664,10 @@
       exports.Prompt = Prompt = function (_super) {
         __extends(Prompt, _super);
         function Prompt(spec) {
-          this.spec = spec != null ? spec : {};
-          this.spec = _.defaults(this.spec, {
+          if (spec == null) {
+            spec = {};
+          }
+          Prompt.__super__.constructor.call(this, spec, {
             title: '',
             delay: 0,
             defaultValue: ''
@@ -4612,8 +4694,10 @@
       exports.Confirm = Confirm = function (_super) {
         __extends(Confirm, _super);
         function Confirm(spec) {
-          this.spec = spec != null ? spec : {};
-          this.spec = _.defaults(this.spec, {
+          if (spec == null) {
+            spec = {};
+          }
+          Confirm.__super__.constructor.call(this, spec, {
             message: '',
             delay: 0,
             defaultValue: ''
@@ -4638,8 +4722,10 @@
       }(Response);
       exports.TypedResponse = TypedResponse = function () {
         function TypedResponse(spec) {
-          this.spec = spec != null ? spec : {};
-          this.spec = _.defaults(this.spec, {
+          if (spec == null) {
+            spec = {};
+          }
+          TypedResponse.__super__.constructor.call(this, spec, {
             left: 250,
             top: 250,
             defaultValue: ''
@@ -4690,6 +4776,7 @@
       exports.MousePressResponse = MousePressResponse = function (_super) {
         __extends(MousePressResponse, _super);
         function MousePressResponse() {
+          MousePressResponse.__super__.constructor.call(this, {}, {});
         }
         MousePressResponse.prototype.activate = function (context) {
           var deferred, mouse, _this = this;
@@ -4731,12 +4818,13 @@
             var Acc, resp, timestamp;
             Acc = _.contains(_this.spec.correct, String.fromCharCode(filtered.keyCode));
             timestamp = getTimestamp();
-            resp = new EventData('KeyPress', _this.id, {
+            resp = new Psy.EventData('KeyPress', _this.id, {
               KeyTime: timestamp,
               RT: timestamp - _this.startTime,
               Accuracy: Acc,
               KeyChar: String.fromCharCode(filtered.keyCode)
             });
+            context.pushEventData(resp);
             context.logEvent('KeyPress', getTimestamp());
             context.logEvent('$ACC', Acc);
             return deferred.resolve(resp);
@@ -4748,7 +4836,10 @@
       exports.SpaceKeyResponse = SpaceKeyResponse = function (_super) {
         __extends(SpaceKeyResponse, _super);
         function SpaceKeyResponse(spec) {
-          this.spec = spec != null ? spec : {};
+          if (spec == null) {
+            spec = {};
+          }
+          SpaceKeyResponse.__super__.constructor.call(this, spec, {});
         }
         SpaceKeyResponse.prototype.activate = function (context) {
           var deferred, keyStream, _this = this;
@@ -4770,6 +4861,7 @@
         __extends(FirstResponse, _super);
         function FirstResponse(responses) {
           this.responses = responses;
+          FirstResponse.__super__.constructor.call(this, {}, {});
         }
         FirstResponse.prototype.activate = function (context) {
           var deferred, promises, _this = this;
@@ -4785,14 +4877,14 @@
       }(Response);
       exports.ClickResponse = ClickResponse = function (_super) {
         __extends(ClickResponse, _super);
-        function ClickResponse(id) {
-          this.id = id;
+        function ClickResponse(refid) {
+          this.refid = refid;
         }
         ClickResponse.prototype.activate = function (context) {
           var deferred, element, _this = this;
-          element = context.stage.get('#' + this.id);
+          element = context.stage.get('#' + this.refid);
           if (!element) {
-            throw 'cannot find element with id' + this.id;
+            throw 'cannot find element with id' + this.refid;
           }
           deferred = Q.defer();
           element.on('click', function (ev) {
@@ -4809,7 +4901,7 @@
           if (spec == null) {
             spec = {};
           }
-          this.spec = _.defaults(spec, {
+          GridLines.__super__.constructor.call(this, spec, {
             x: 0,
             y: 0,
             rows: 3,
@@ -4819,8 +4911,8 @@
           });
         }
         GridLines.prototype.render = function (context, layer) {
-          var i, line, x, y, _i, _j, _ref1, _ref2, _results;
-          for (i = _i = 0, _ref1 = this.spec.rows; 0 <= _ref1 ? _i <= _ref1 : _i >= _ref1; i = 0 <= _ref1 ? ++_i : --_i) {
+          var i, line, x, y, _i, _j, _ref3, _ref4, _results;
+          for (i = _i = 0, _ref3 = this.spec.rows; 0 <= _ref3 ? _i <= _ref3 : _i >= _ref3; i = 0 <= _ref3 ? ++_i : --_i) {
             y = this.spec.y + i * context.height() / this.spec.rows;
             line = new Kinetic.Line({
               points: [
@@ -4836,7 +4928,7 @@
             layer.add(line);
           }
           _results = [];
-          for (i = _j = 0, _ref2 = this.spec.cols; 0 <= _ref2 ? _j <= _ref2 : _j >= _ref2; i = 0 <= _ref2 ? ++_j : --_j) {
+          for (i = _j = 0, _ref4 = this.spec.cols; 0 <= _ref4 ? _j <= _ref4 : _j >= _ref4; i = 0 <= _ref4 ? ++_j : --_j) {
             x = this.spec.x + i * context.width() / this.spec.cols;
             line = new Kinetic.Line({
               points: [
@@ -4862,7 +4954,7 @@
             spec = {};
           }
           disableBrowserBack();
-          this.spec = _.defaults(spec, {
+          TextInput.__super__.constructor.call(this, spec, {
             x: 100,
             y: 100,
             width: 200,
@@ -4998,7 +5090,7 @@
           if (spec == null) {
             spec = {};
           }
-          this.spec = _.defaults(spec, {
+          Picture.__super__.constructor.call(this, spec, {
             url: 'http://www.html5canvastutorials.com/demos/assets/yoda.jpg',
             x: 0,
             y: 0
@@ -5024,24 +5116,24 @@
       exports.Group = Group = function (_super) {
         __extends(Group, _super);
         function Group(stims, layout) {
-          var stim, _i, _len, _ref1;
+          var stim, _i, _len, _ref3;
           this.stims = stims;
           Group.__super__.constructor.call(this, {}, {});
           if (layout) {
             this.layout = layout;
-            _ref1 = this.stims;
-            for (_i = 0, _len = _ref1.length; _i < _len; _i++) {
-              stim = _ref1[_i];
+            _ref3 = this.stims;
+            for (_i = 0, _len = _ref3.length; _i < _len; _i++) {
+              stim = _ref3[_i];
               stim.layout = layout;
             }
           }
         }
         Group.prototype.render = function (context, layer) {
-          var stim, _i, _len, _ref1, _results;
-          _ref1 = this.stims;
+          var stim, _i, _len, _ref3, _results;
+          _ref3 = this.stims;
           _results = [];
-          for (_i = 0, _len = _ref1.length; _i < _len; _i++) {
-            stim = _ref1[_i];
+          for (_i = 0, _len = _ref3.length; _i < _len; _i++) {
+            stim = _ref3[_i];
             _results.push(stim.render(context, layer));
           }
           return _results;
@@ -5053,9 +5145,10 @@
         function Background(stims, fill) {
           this.stims = stims != null ? stims : [];
           this.fill = fill != null ? fill : 'white';
+          Background.__super__.constructor.call(this, {}, {});
         }
         Background.prototype.render = function (context, layer) {
-          var background, stim, _i, _len, _ref1, _results;
+          var background, stim, _i, _len, _ref3, _results;
           background = new Kinetic.Rect({
             x: 0,
             y: 0,
@@ -5065,10 +5158,10 @@
             fill: this.fill
           });
           layer.add(background);
-          _ref1 = this.stims;
+          _ref3 = this.stims;
           _results = [];
-          for (_i = 0, _len = _ref1.length; _i < _len; _i++) {
-            stim = _ref1[_i];
+          for (_i = 0, _len = _ref3.length; _i < _len; _i++) {
+            stim = _ref3[_i];
             _results.push(stim.render(context, layer));
           }
           return _results;
@@ -5077,20 +5170,20 @@
       }(Stimulus);
       exports.Sequence = Sequence = function (_super) {
         __extends(Sequence, _super);
-        Sequence.prototype.stopped = false;
         function Sequence(stims, soa, clear, times) {
           var i;
           this.stims = stims;
           this.soa = soa;
           this.clear = clear != null ? clear : true;
           this.times = times != null ? times : 1;
+          Sequence.__super__.constructor.call(this, {}, {});
           if (this.soa.length !== this.stims.length) {
             this.soa = Psy.repLen(this.soa, this.stims.length);
           }
           this.onsets = function () {
-            var _i, _ref1, _results;
+            var _i, _ref3, _results;
             _results = [];
-            for (i = _i = 0, _ref1 = this.soa.length; 0 <= _ref1 ? _i < _ref1 : _i > _ref1; i = 0 <= _ref1 ? ++_i : --_i) {
+            for (i = _i = 0, _ref3 = this.soa.length; 0 <= _ref3 ? _i < _ref3 : _i > _ref3; i = 0 <= _ref3 ? ++_i : --_i) {
               _results.push(_.reduce(this.soa.slice(0, +i + 1 || 9e9), function (x, acc) {
                 return x + acc;
               }));
@@ -5099,11 +5192,11 @@
           }.call(this);
         }
         Sequence.prototype.genseq = function (context, layer) {
-          var deferred, _i, _ref1, _results, _this = this;
+          var deferred, _i, _ref3, _results, _this = this;
           deferred = Q.defer();
           _.forEach(function () {
             _results = [];
-            for (var _i = 0, _ref1 = this.stims.length; 0 <= _ref1 ? _i < _ref1 : _i > _ref1; 0 <= _ref1 ? _i++ : _i--) {
+            for (var _i = 0, _ref3 = this.stims.length; 0 <= _ref3 ? _i < _ref3 : _i > _ref3; 0 <= _ref3 ? _i++ : _i--) {
               _results.push(_i);
             }
             return _results;
@@ -5128,17 +5221,14 @@
           return deferred.promise;
         };
         Sequence.prototype.render = function (context, layer) {
-          var i, result, _i, _ref1, _this = this;
+          var i, result, _i, _ref3, _this = this;
           result = Q.resolve(0);
-          for (i = _i = 0, _ref1 = this.times; 0 <= _ref1 ? _i < _ref1 : _i > _ref1; i = 0 <= _ref1 ? ++_i : --_i) {
+          for (i = _i = 0, _ref3 = this.times; 0 <= _ref3 ? _i < _ref3 : _i > _ref3; i = 0 <= _ref3 ? ++_i : --_i) {
             result = result.then(function () {
               return _this.genseq(context, layer);
             });
           }
           return result;
-        };
-        Sequence.prototype.stop = function () {
-          return this.stopped = true;
         };
         return Sequence;
       }(Stimulus);
@@ -5148,7 +5238,7 @@
           if (spec == null) {
             spec = {};
           }
-          this.spec = _.defaults(spec, { fill: 'white' });
+          Blank.__super__.constructor.call(this, spec, { fill: 'white' });
         }
         Blank.prototype.render = function (context, layer) {
           var blank;
@@ -5166,7 +5256,10 @@
       exports.Clear = Clear = function (_super) {
         __extends(Clear, _super);
         function Clear(spec) {
-          this.spec = spec != null ? spec : {};
+          if (spec == null) {
+            spec = {};
+          }
+          Clear.__super__.constructor.call(this, spec, {});
         }
         Clear.prototype.render = function (context, layer) {
           return context.clearContent(true);
@@ -5179,7 +5272,7 @@
           if (spec == null) {
             spec = {};
           }
-          this.spec = _.defaults(spec, {
+          Arrow.__super__.constructor.call(this, spec, {
             x: 100,
             y: 100,
             length: 100,
@@ -5273,7 +5366,7 @@
           if (spec == null) {
             spec = {};
           }
-          this.spec = _.defaults(spec, {
+          Circle.__super__.constructor.call(this, spec, {
             x: 100,
             y: 100,
             radius: 50,
@@ -5339,7 +5432,7 @@
           if (spec == null) {
             spec = {};
           }
-          this.spec = _.defaults(spec, {
+          CanvasBorder.__super__.constructor.call(this, spec, {
             strokeWidth: 5,
             stroke: 'black'
           });
@@ -5364,7 +5457,7 @@
           if (spec == null) {
             spec = {};
           }
-          this.spec = _.defaults(spec, {
+          StartButton.__super__.constructor.call(this, spec, {
             width: 150,
             height: 75
           });
@@ -5459,7 +5552,7 @@
           if (spec == null) {
             spec = {};
           }
-          this.spec = _.defaults(spec, {
+          Text.__super__.constructor.call(this, spec, {
             content: 'Text',
             x: 5,
             y: 5,
@@ -5503,7 +5596,7 @@
           if (spec == null) {
             spec = {};
           }
-          this.spec = _.defaults(spec, {
+          Paragraph.__super__.constructor.call(this, spec, {
             content: '',
             x: 50,
             y: 50,
@@ -5517,11 +5610,33 @@
           });
         }
         return Paragraph;
-      }(Stimulus);
+      }(exports.Stimulus);
       exports.Markdown = Markdown = function (_super) {
         __extends(Markdown, _super);
-        function Markdown(input) {
-          this.html = markdown.toHTML(input);
+        function Markdown(spec) {
+          var _this = this;
+          if (spec == null) {
+            spec = {};
+          }
+          Markdown.__super__.constructor.call(this, spec, {});
+          if (_.isString(spec)) {
+            this.spec = {};
+            this.spec.content = spec;
+          }
+          if (this.spec.url != null) {
+            $.ajax({
+              url: this.spec.url,
+              success: function (result) {
+                _this.spec.content = result;
+                return _this.html = markdown.toHTML(_this.spec.content);
+              },
+              error: function (result) {
+                return console.log('ajax failure', result);
+              }
+            });
+          } else {
+            this.html = markdown.toHTML(this.spec.content);
+          }
         }
         Markdown.prototype.render = function (context, layer) {
           console.log(this.html);
@@ -5529,14 +5644,116 @@
           return context.appendHtml(this.html);
         };
         return Markdown;
-      }(Stimulus);
+      }(exports.Stimulus);
+      exports.Instructions = Instructions = function (_super) {
+        __extends(Instructions, _super);
+        function Instructions(spec) {
+          var div, key, md, value;
+          if (spec == null) {
+            spec = {};
+          }
+          Instructions.__super__.constructor.call(this, spec, {});
+          this.pages = function () {
+            var _ref3, _results;
+            _ref3 = this.spec.pages;
+            _results = [];
+            for (key in _ref3) {
+              value = _ref3[key];
+              md = new Markdown(value);
+              div = $('<div></div>');
+              _results.push($(div).addClass('ui stacked segment').append(md.html));
+            }
+            return _results;
+          }.call(this);
+          this.back = $('<div class="ui green disabled labeled icon button"><i class="left arrow icon"></i>Back</div>').attr('id', 'instructions_back');
+          this.next = $('<div class="ui green right labeled icon button"><i class="right arrow icon"></i>Next</div>').attr('id', 'instructions_next');
+          this.nav = $('<div></div>').append(this.back).append('\n').append(this.next).css('position', 'absolute').css('right', '0px');
+          this.currentPage = 0;
+        }
+        Instructions.prototype.activate = function (context) {
+          this.deferred = Q.defer();
+          return this.deferred.promise;
+        };
+        Instructions.prototype.render = function (context, layer) {
+          var _this = this;
+          this.next.click(function (e) {
+            if (_this.currentPage < _this.pages.length - 1) {
+              _this.currentPage += 1;
+              context.clearHtml();
+              return _this.render(context);
+            } else {
+              return _this.deferred.resolve(0);
+            }
+          });
+          this.back.click(function (e) {
+            console.log('back click!');
+            if (_this.currentPage > 0) {
+              _this.currentPage -= 1;
+              context.clearHtml();
+              return _this.render(context);
+            }
+          });
+          if (this.currentPage > 0) {
+            this.back.removeClass('disabled');
+          }
+          $(this.pages[this.currentPage]).css({ 'min-height': context.height() - 50 });
+          context.appendHtml(this.pages[this.currentPage]);
+          return context.appendHtml(this.nav);
+        };
+        return Instructions;
+      }(exports.Response);
+      exports.HtmlLink = HtmlLink = function (_super) {
+        __extends(HtmlLink, _super);
+        function HtmlLink(spec) {
+          if (spec == null) {
+            spec = {};
+          }
+          HtmlLink.__super__.constructor.call(this, spec, { label: 'link' });
+          this.html = $("<a href='#'>" + this.spec.label + '</a>');
+          if (this.spec.x != null && this.spec.y) {
+            this.html.css({
+              position: 'absolute',
+              left: this.spec.x,
+              top: this.spec.y
+            });
+          }
+        }
+        HtmlLink.prototype.render = function (context, layer) {
+          return context.appendHtml(this.html);
+        };
+        return HtmlLink;
+      }(exports.Stimulus);
+      exports.HtmlButton = HtmlButton = function (_super) {
+        __extends(HtmlButton, _super);
+        function HtmlButton(spec) {
+          if (spec == null) {
+            spec = {};
+          }
+          HtmlButton.__super__.constructor.call(this, spec, {
+            label: 'Next',
+            'class': ''
+          });
+          this.html = $("<div class='ui button'>\n" + this.spec.label + '</div>');
+          if (this.spec.x != null && this.spec.y) {
+            this.html.css({
+              position: 'absolute',
+              left: this.spec.x,
+              top: this.spec.y
+            }).addClass(this.spec['class']);
+          }
+        }
+        HtmlButton.prototype.render = function (context, layer) {
+          return context.appendHtml(this.html);
+        };
+        return HtmlButton;
+      }(exports.Stimulus);
       exports.MultipleChoice = MultipleChoice = function (_super) {
         __extends(MultipleChoice, _super);
         function MultipleChoice(spec) {
           if (spec == null) {
             spec = {};
           }
-          this.spec = _.defaults(spec, {
+          MultipleChoice.__super__.constructor.call(this, spec, {
             question: 'What is your name?',
             options: [
               'Bill',
@@ -5553,7 +5770,7 @@
           });
         }
         MultipleChoice.prototype.render = function (context, layer) {
-          var choice, i, questionText, _i, _ref1, _results;
+          var choice, i, questionText, _i, _ref3, _results;
           questionText = new Kinetic.Text({
             x: this.spec.x,
             y: this.spec.y,
@@ -5564,7 +5781,7 @@
           });
           layer.add(questionText);
           _results = [];
-          for (i = _i = 0, _ref1 = this.spec.options.length; 0 <= _ref1 ? _i < _ref1 : _i > _ref1; i = 0 <= _ref1 ? ++_i : --_i) {
+          for (i = _i = 0, _ref3 = this.spec.options.length; 0 <= _ref3 ? _i < _ref3 : _i > _ref3; i = 0 <= _ref3 ? ++_i : --_i) {
             choice = new Kinetic.Text({
               x: this.spec.x + 5,
               y: questionText.getHeight() * (i + 1) + 30,
@@ -5580,11 +5797,12 @@
           return _results;
         };
         return MultipleChoice;
-      }(Stimulus);
+      }(exports.Stimulus);
       exports.KineticContext = KineticContext = function (_super) {
         __extends(KineticContext, _super);
         function KineticContext(stage) {
           this.stage = stage;
+          KineticContext.__super__.constructor.call(this, new KineticStimFactory);
           this.contentLayer = new Kinetic.Layer({ clearBeforeDraw: true });
           this.backgroundLayer = new Kinetic.Layer({ clearBeforeDraw: true });
           this.background = new Background([], { fill: 'white' });
@@ -5607,10 +5825,14 @@
         KineticContext.prototype.insertHTMLDiv = function () {
           $('canvas').css('position', 'absolute');
           $('.kineticjs-content').css('position', 'absolute');
-          $('#container').append('<div id="htmlcontainer" class="htmllayer">\n        <p>This <em>is</em> heading 1</p>\n\n</div>');
-          $('#htmlcontainer').css('position', 'absolute');
-          $('#htmlcontainer').css('z-index', 999);
-          return $('#container').attr('tabindex', 0);
+          $('#container').append('<div id="htmlcontainer" class="htmllayer"></div>');
+          $('#htmlcontainer').css({
+            position: 'absolute',
+            'z-index': 999,
+            outline: 'none'
+          });
+          $('#container').attr('tabindex', 0);
+          return $('#container').css('outline', 'none');
         };
         KineticContext.prototype.clearHtml = function () {
           return $('#htmlcontainer').empty();
@@ -5691,8 +5913,8 @@
       exports.KineticStimFactory = KineticStimFactory = function (_super) {
         __extends(KineticStimFactory, _super);
         function KineticStimFactory() {
-          _ref1 = KineticStimFactory.__super__.constructor.apply(this, arguments);
-          return _ref1;
+          _ref3 = KineticStimFactory.__super__.constructor.apply(this, arguments);
+          return _ref3;
         }
         KineticStimFactory.prototype.makeLayout = function (name, params, context) {
           switch (name) {
@@ -5704,6 +5926,9 @@
               height: context.height()
             });
           }
+        };
+        KineticStimFactory.prototype.makeInstructions = function (spec) {
+          return new Instructions(spec);
         };
         KineticStimFactory.prototype.makeStimulus = function (name, params, context) {
           var callee, i, layoutName, layoutParams, names, props, stims;
@@ -5725,9 +5950,9 @@
               return _.values(stim)[0];
             });
             stims = function () {
-              var _i, _ref2, _results;
+              var _i, _ref4, _results;
               _results = [];
-              for (i = _i = 0, _ref2 = names.length; 0 <= _ref2 ? _i < _ref2 : _i > _ref2; i = 0 <= _ref2 ? ++_i : --_i) {
+              for (i = _i = 0, _ref4 = names.length; 0 <= _ref4 ? _i < _ref4 : _i > _ref4; i = 0 <= _ref4 ? ++_i : --_i) {
                 _results.push(callee(names[i], props[i]));
               }
               return _results;
@@ -5754,12 +5979,6 @@
         };
         return KineticStimFactory;
       }(Psy.StimFactory);
-      x = new Timeout({ duration: 22 });
-      prom = x.activate();
-      prom.then(function (resp) {
-        return console.log('resp', resp);
-      });
-      console.log(new Response().id);
     }.call(this));
   });
   require.define('/lib/Bacon.js', function (module, exports, __dirname, __filename) {
@@ -7495,6 +7714,1396 @@
         }
       };
       Bacon._ = _;
+    }.call(this));
+  });
+  require.define('/lib/markdown.js', function (module, exports, __dirname, __filename) {
+    (function (expose) {
+      var MarkdownHelpers = {};
+      function mk_block_toSource() {
+        return 'Markdown.mk_block( ' + uneval(this.toString()) + ', ' + uneval(this.trailing) + ', ' + uneval(this.lineNumber) + ' )';
+      }
+      function mk_block_inspect() {
+        var util = require('util', module);
+        return 'Markdown.mk_block( ' + util.inspect(this.toString()) + ', ' + util.inspect(this.trailing) + ', ' + util.inspect(this.lineNumber) + ' )';
+      }
+      MarkdownHelpers.mk_block = function (block, trail, line) {
+        if (arguments.length === 1)
+          trail = '\n\n';
+        var s = new String(block);
+        s.trailing = trail;
+        s.inspect = mk_block_inspect;
+        s.toSource = mk_block_toSource;
+        if (line !== undefined)
+          s.lineNumber = line;
+        return s;
+      };
+      var isArray = MarkdownHelpers.isArray = Array.isArray || function (obj) {
+          return Object.prototype.toString.call(obj) === '[object Array]';
+        };
+      if (Array.prototype.forEach) {
+        MarkdownHelpers.forEach = function forEach(arr, cb, thisp) {
+          return arr.forEach(cb, thisp);
+        };
+      } else {
+        MarkdownHelpers.forEach = function forEach(arr, cb, thisp) {
+          for (var i = 0; i < arr.length; i++)
+            cb.call(thisp || arr, arr[i], i, arr);
+        };
+      }
+      MarkdownHelpers.isEmpty = function isEmpty(obj) {
+        for (var key in obj) {
+          if (hasOwnProperty.call(obj, key))
+            return false;
+        }
+        return true;
+      };
+      MarkdownHelpers.extract_attr = function extract_attr(jsonml) {
+        return isArray(jsonml) && jsonml.length > 1 && typeof jsonml[1] === 'object' && !isArray(jsonml[1]) ? jsonml[1] : undefined;
+      };
+      var Markdown = function (dialect) {
+        switch (typeof dialect) {
+        case 'undefined':
+          this.dialect = Markdown.dialects.Gruber;
+          break;
+        case 'object':
+          this.dialect = dialect;
+          break;
+        default:
+          if (dialect in Markdown.dialects)
+            this.dialect = Markdown.dialects[dialect];
+          else
+            throw new Error("Unknown Markdown dialect '" + String(dialect) + "'");
+          break;
+        }
+        this.em_state = [];
+        this.strong_state = [];
+        this.debug_indent = '';
+      };
+      Markdown.dialects = {};
+      var mk_block = Markdown.mk_block = MarkdownHelpers.mk_block, isArray = MarkdownHelpers.isArray;
+      Markdown.parse = function (source, dialect) {
+        var md = new Markdown(dialect);
+        return md.toTree(source);
+      };
+      function count_lines(str) {
+        var n = 0, i = -1;
+        while ((i = str.indexOf('\n', i + 1)) !== -1)
+          n++;
+        return n;
+      }
+      Markdown.prototype.split_blocks = function splitBlocks(input) {
+        input = input.replace(/(\r\n|\n|\r)/g, '\n');
+        var re = /([\s\S]+?)($|\n#|\n(?:\s*\n|$)+)/g, blocks = [], m;
+        var line_no = 1;
+        if ((m = /^(\s*\n)/.exec(input)) !== null) {
+          line_no += count_lines(m[0]);
+          re.lastIndex = m[0].length;
+        }
+        while ((m = re.exec(input)) !== null) {
+          if (m[2] === '\n#') {
+            m[2] = '\n';
+            re.lastIndex--;
+          }
+          blocks.push(mk_block(m[1], m[2], line_no));
+          line_no += count_lines(m[0]);
+        }
+        return blocks;
+      };
+      Markdown.prototype.processBlock = function processBlock(block, next) {
+        var cbs = this.dialect.block, ord = cbs.__order__;
+        if ('__call__' in cbs)
+          return cbs.__call__.call(this, block, next);
+        for (var i = 0; i < ord.length; i++) {
+          var res = cbs[ord[i]].call(this, block, next);
+          if (res) {
+            if (!isArray(res) || res.length > 0 && !isArray(res[0]))
+              this.debug(ord[i], "didn't return a proper array");
+            return res;
+          }
+        }
+        return [];
+      };
+      Markdown.prototype.processInline = function processInline(block) {
+        return this.dialect.inline.__call__.call(this, String(block));
+      };
+      Markdown.prototype.toTree = function toTree(source, custom_root) {
+        var blocks = source instanceof Array ? source : this.split_blocks(source);
+        var old_tree = this.tree;
+        try {
+          this.tree = custom_root || this.tree || ['markdown'];
+          blocks_loop:
+            while (blocks.length) {
+              var b = this.processBlock(blocks.shift(), blocks);
+              if (!b.length)
+                continue blocks_loop;
+              this.tree.push.apply(this.tree, b);
+            }
+          return this.tree;
+        } finally {
+          if (custom_root)
+            this.tree = old_tree;
+        }
+      };
+      Markdown.prototype.debug = function () {
+        var args = Array.prototype.slice.call(arguments);
+        args.unshift(this.debug_indent);
+        if (typeof print !== 'undefined')
+          print.apply(print, args);
+        if (typeof console !== 'undefined' && typeof console.log !== 'undefined')
+          console.log.apply(null, args);
+      };
+      Markdown.prototype.loop_re_over_block = function (re, block, cb) {
+        var m, b = block.valueOf();
+        while (b.length && (m = re.exec(b)) !== null) {
+          b = b.substr(m[0].length);
+          cb.call(this, m);
+        }
+        return b;
+      };
+      Markdown.buildBlockOrder = function (d) {
+        var ord = [];
+        for (var i in d) {
+          if (i === '__order__' || i === '__call__')
+            continue;
+          ord.push(i);
+        }
+        d.__order__ = ord;
+      };
+      Markdown.buildInlinePatterns = function (d) {
+        var patterns = [];
+        for (var i in d) {
+          if (i.match(/^__.*__$/))
+            continue;
+          var l = i.replace(/([\\.*+?|()\[\]{}])/g, '\\$1').replace(/\n/, '\\n');
+          patterns.push(i.length === 1 ? l : '(?:' + l + ')');
+        }
+        patterns = patterns.join('|');
+        d.__patterns__ = patterns;
+        var fn = d.__call__;
+        d.__call__ = function (text, pattern) {
+          if (pattern !== undefined)
+            return fn.call(this, text, pattern);
+          else
+            return fn.call(this, text, patterns);
+        };
+      };
+      var extract_attr = MarkdownHelpers.extract_attr;
+      Markdown.renderJsonML = function (jsonml, options) {
+        options = options || {};
+        options.root = options.root || false;
+        var content = [];
+        if (options.root) {
+          content.push(render_tree(jsonml));
+        } else {
+          jsonml.shift();
+          if (jsonml.length && typeof jsonml[0] === 'object' && !(jsonml[0] instanceof Array))
+            jsonml.shift();
+          while (jsonml.length)
+            content.push(render_tree(jsonml.shift()));
+        }
+        return content.join('\n\n');
+      };
+      Markdown.toHTMLTree = function toHTMLTree(input, dialect, options) {
+        if (typeof input === 'string')
+          input = this.parse(input, dialect);
+        var attrs = extract_attr(input), refs = {};
+        if (attrs && attrs.references)
+          refs = attrs.references;
+        var html = convert_tree_to_html(input, refs, options);
+        merge_text_nodes(html);
+        return html;
+      };
+      Markdown.toHTML = function toHTML(source, dialect, options) {
+        var input = this.toHTMLTree(source, dialect, options);
+        return this.renderJsonML(input);
+      };
+      function escapeHTML(text) {
+        return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+      }
+      function render_tree(jsonml) {
+        if (typeof jsonml === 'string')
+          return escapeHTML(jsonml);
+        var tag = jsonml.shift(), attributes = {}, content = [];
+        if (jsonml.length && typeof jsonml[0] === 'object' && !(jsonml[0] instanceof Array))
+          attributes = jsonml.shift();
+        while (jsonml.length)
+          content.push(render_tree(jsonml.shift()));
+        var tag_attrs = '';
+        for (var a in attributes)
+          tag_attrs += ' ' + a + '="' + escapeHTML(attributes[a]) + '"';
+        if (tag === 'img' || tag === 'br' || tag === 'hr')
+          return '<' + tag + tag_attrs + '/>';
+        else
+          return '<' + tag + tag_attrs + '>' + content.join('') + '</' + tag + '>';
+      }
+      function convert_tree_to_html(tree, references, options) {
+        var i;
+        options = options || {};
+        var jsonml = tree.slice(0);
+        if (typeof options.preprocessTreeNode === 'function')
+          jsonml = options.preprocessTreeNode(jsonml, references);
+        var attrs = extract_attr(jsonml);
+        if (attrs) {
+          jsonml[1] = {};
+          for (i in attrs) {
+            jsonml[1][i] = attrs[i];
+          }
+          attrs = jsonml[1];
+        }
+        if (typeof jsonml === 'string')
+          return jsonml;
+        switch (jsonml[0]) {
+        case 'header':
+          jsonml[0] = 'h' + jsonml[1].level;
+          delete jsonml[1].level;
+          break;
+        case 'bulletlist':
+          jsonml[0] = 'ul';
+          break;
+        case 'numberlist':
+          jsonml[0] = 'ol';
+          break;
+        case 'listitem':
+          jsonml[0] = 'li';
+          break;
+        case 'para':
+          jsonml[0] = 'p';
+          break;
+        case 'markdown':
+          jsonml[0] = 'html';
+          if (attrs)
+            delete attrs.references;
+          break;
+        case 'code_block':
+          jsonml[0] = 'pre';
+          i = attrs ? 2 : 1;
+          var code = ['code'];
+          code.push.apply(code, jsonml.splice(i, jsonml.length - i));
+          jsonml[i] = code;
+          break;
+        case 'inlinecode':
+          jsonml[0] = 'code';
+          break;
+        case 'img':
+          jsonml[1].src = jsonml[1].href;
+          delete jsonml[1].href;
+          break;
+        case 'linebreak':
+          jsonml[0] = 'br';
+          break;
+        case 'link':
+          jsonml[0] = 'a';
+          break;
+        case 'link_ref':
+          jsonml[0] = 'a';
+          var ref = references[attrs.ref];
+          if (ref) {
+            delete attrs.ref;
+            attrs.href = ref.href;
+            if (ref.title)
+              attrs.title = ref.title;
+            delete attrs.original;
+          } else {
+            return attrs.original;
+          }
+          break;
+        case 'img_ref':
+          jsonml[0] = 'img';
+          var ref = references[attrs.ref];
+          if (ref) {
+            delete attrs.ref;
+            attrs.src = ref.href;
+            if (ref.title)
+              attrs.title = ref.title;
+            delete attrs.original;
+          } else {
+            return attrs.original;
+          }
+          break;
+        }
+        i = 1;
+        if (attrs) {
+          for (var key in jsonml[1]) {
+            i = 2;
+            break;
+          }
+          if (i === 1)
+            jsonml.splice(i, 1);
+        }
+        for (; i < jsonml.length; ++i) {
+          jsonml[i] = convert_tree_to_html(jsonml[i], references, options);
+        }
+        return jsonml;
+      }
+      function merge_text_nodes(jsonml) {
+        var i = extract_attr(jsonml) ? 2 : 1;
+        while (i < jsonml.length) {
+          if (typeof jsonml[i] === 'string') {
+            if (i + 1 < jsonml.length && typeof jsonml[i + 1] === 'string') {
+              jsonml[i] += jsonml.splice(i + 1, 1)[0];
+            } else {
+              ++i;
+            }
+          } else {
+            merge_text_nodes(jsonml[i]);
+            ++i;
+          }
+        }
+      }
+      ;
+      var DialectHelpers = {};
+      DialectHelpers.inline_until_char = function (text, want) {
+        var consumed = 0, nodes = [];
+        while (true) {
+          if (text.charAt(consumed) === want) {
+            consumed++;
+            return [
+              consumed,
+              nodes
+            ];
+          }
+          if (consumed >= text.length) {
+            return null;
+          }
+          var res = this.dialect.inline.__oneElement__.call(this, text.substr(consumed));
+          consumed += res[0];
+          nodes.push.apply(nodes, res.slice(1));
+        }
+      };
+      DialectHelpers.subclassDialect = function (d) {
+        function Block() {
+        }
+        Block.prototype = d.block;
+        function Inline() {
+        }
+        Inline.prototype = d.inline;
+        return {
+          block: new Block,
+          inline: new Inline
+        };
+      };
+      var forEach = MarkdownHelpers.forEach, extract_attr = MarkdownHelpers.extract_attr, mk_block = MarkdownHelpers.mk_block, isEmpty = MarkdownHelpers.isEmpty, inline_until_char = DialectHelpers.inline_until_char;
+      var Gruber = {
+          block: {
+            atxHeader: function atxHeader(block, next) {
+              var m = block.match(/^(#{1,6})\s*(.*?)\s*#*\s*(?:\n|$)/);
+              if (!m)
+                return undefined;
+              var header = [
+                  'header',
+                  { level: m[1].length }
+                ];
+              Array.prototype.push.apply(header, this.processInline(m[2]));
+              if (m[0].length < block.length)
+                next.unshift(mk_block(block.substr(m[0].length), block.trailing, block.lineNumber + 2));
+              return [header];
+            },
+            setextHeader: function setextHeader(block, next) {
+              var m = block.match(/^(.*)\n([-=])\2\2+(?:\n|$)/);
+              if (!m)
+                return undefined;
+              var level = m[2] === '=' ? 1 : 2, header = [
+                  'header',
+                  { level: level },
+                  m[1]
+                ];
+              if (m[0].length < block.length)
+                next.unshift(mk_block(block.substr(m[0].length), block.trailing, block.lineNumber + 2));
+              return [header];
+            },
+            code: function code(block, next) {
+              var ret = [], re = /^(?: {0,3}\t| {4})(.*)\n?/;
+              if (!block.match(re))
+                return undefined;
+              block_search:
+                do {
+                  var b = this.loop_re_over_block(re, block.valueOf(), function (m) {
+                      ret.push(m[1]);
+                    });
+                  if (b.length) {
+                    next.unshift(mk_block(b, block.trailing));
+                    break block_search;
+                  } else if (next.length) {
+                    if (!next[0].match(re))
+                      break block_search;
+                    ret.push(block.trailing.replace(/[^\n]/g, '').substring(2));
+                    block = next.shift();
+                  } else {
+                    break block_search;
+                  }
+                } while (true);
+              return [[
+                  'code_block',
+                  ret.join('\n')
+                ]];
+            },
+            horizRule: function horizRule(block, next) {
+              var m = block.match(/^(?:([\s\S]*?)\n)?[ \t]*([-_*])(?:[ \t]*\2){2,}[ \t]*(?:\n([\s\S]*))?$/);
+              if (!m)
+                return undefined;
+              var jsonml = [['hr']];
+              if (m[1]) {
+                var contained = mk_block(m[1], '', block.lineNumber);
+                jsonml.unshift.apply(jsonml, this.toTree(contained, []));
+              }
+              if (m[3])
+                next.unshift(mk_block(m[3], block.trailing, block.lineNumber + 1));
+              return jsonml;
+            },
+            lists: function () {
+              var any_list = '[*+-]|\\d+\\.', bullet_list = /[*+-]/, is_list_re = new RegExp('^( {0,3})(' + any_list + ')[ \t]+'), indent_re = '(?: {0,3}\\t| {4})';
+              function regex_for_depth(depth) {
+                return new RegExp('(?:^(' + indent_re + '{0,' + depth + '} {0,3})(' + any_list + ')\\s+)|' + '(^' + indent_re + '{0,' + (depth - 1) + '}[ ]{0,4})');
+              }
+              function expand_tab(input) {
+                return input.replace(/ {0,3}\t/g, '    ');
+              }
+              function add(li, loose, inline, nl) {
+                if (loose) {
+                  li.push(['para'].concat(inline));
+                  return;
+                }
+                var add_to = li[li.length - 1] instanceof Array && li[li.length - 1][0] === 'para' ? li[li.length - 1] : li;
+                if (nl && li.length > 1)
+                  inline.unshift(nl);
+                for (var i = 0; i < inline.length; i++) {
+                  var what = inline[i], is_str = typeof what === 'string';
+                  if (is_str && add_to.length > 1 && typeof add_to[add_to.length - 1] === 'string')
+                    add_to[add_to.length - 1] += what;
+                  else
+                    add_to.push(what);
+                }
+              }
+              function get_contained_blocks(depth, blocks) {
+                var re = new RegExp('^(' + indent_re + '{' + depth + '}.*?\\n?)*$'), replace = new RegExp('^' + indent_re + '{' + depth + '}', 'gm'), ret = [];
+                while (blocks.length > 0) {
+                  if (re.exec(blocks[0])) {
+                    var b = blocks.shift(), x = b.replace(replace, '');
+                    ret.push(mk_block(x, b.trailing, b.lineNumber));
+                  } else
+                    break;
+                }
+                return ret;
+              }
+              function paragraphify(s, i, stack) {
+                var list = s.list;
+                var last_li = list[list.length - 1];
+                if (last_li[1] instanceof Array && last_li[1][0] === 'para')
+                  return;
+                if (i + 1 === stack.length) {
+                  last_li.push(['para'].concat(last_li.splice(1, last_li.length - 1)));
+                } else {
+                  var sublist = last_li.pop();
+                  last_li.push(['para'].concat(last_li.splice(1, last_li.length - 1)), sublist);
+                }
+              }
+              return function (block, next) {
+                var m = block.match(is_list_re);
+                if (!m)
+                  return undefined;
+                function make_list(m) {
+                  var list = bullet_list.exec(m[2]) ? ['bulletlist'] : ['numberlist'];
+                  stack.push({
+                    list: list,
+                    indent: m[1]
+                  });
+                  return list;
+                }
+                var stack = [], list = make_list(m), last_li, loose = false, ret = [stack[0].list], i;
+                loose_search:
+                  while (true) {
+                    var lines = block.split(/(?=\n)/);
+                    var li_accumulate = '', nl = '';
+                    tight_search:
+                      for (var line_no = 0; line_no < lines.length; line_no++) {
+                        nl = '';
+                        var l = lines[line_no].replace(/^\n/, function (n) {
+                            nl = n;
+                            return '';
+                          });
+                        var line_re = regex_for_depth(stack.length);
+                        m = l.match(line_re);
+                        if (m[1] !== undefined) {
+                          if (li_accumulate.length) {
+                            add(last_li, loose, this.processInline(li_accumulate), nl);
+                            loose = false;
+                            li_accumulate = '';
+                          }
+                          m[1] = expand_tab(m[1]);
+                          var wanted_depth = Math.floor(m[1].length / 4) + 1;
+                          if (wanted_depth > stack.length) {
+                            list = make_list(m);
+                            last_li.push(list);
+                            last_li = list[1] = ['listitem'];
+                          } else {
+                            var found = false;
+                            for (i = 0; i < stack.length; i++) {
+                              if (stack[i].indent !== m[1])
+                                continue;
+                              list = stack[i].list;
+                              stack.splice(i + 1, stack.length - (i + 1));
+                              found = true;
+                              break;
+                            }
+                            if (!found) {
+                              wanted_depth++;
+                              if (wanted_depth <= stack.length) {
+                                stack.splice(wanted_depth, stack.length - wanted_depth);
+                                list = stack[wanted_depth - 1].list;
+                              } else {
+                                list = make_list(m);
+                                last_li.push(list);
+                              }
+                            }
+                            last_li = ['listitem'];
+                            list.push(last_li);
+                          }
+                          nl = '';
+                        }
+                        if (l.length > m[0].length)
+                          li_accumulate += nl + l.substr(m[0].length);
+                      }
+                    if (li_accumulate.length) {
+                      add(last_li, loose, this.processInline(li_accumulate), nl);
+                      loose = false;
+                      li_accumulate = '';
+                    }
+                    var contained = get_contained_blocks(stack.length, next);
+                    if (contained.length > 0) {
+                      forEach(stack, paragraphify, this);
+                      last_li.push.apply(last_li, this.toTree(contained, []));
+                    }
+                    var next_block = next[0] && next[0].valueOf() || '';
+                    if (next_block.match(is_list_re) || next_block.match(/^ /)) {
+                      block = next.shift();
+                      var hr = this.dialect.block.horizRule(block, next);
+                      if (hr) {
+                        ret.push.apply(ret, hr);
+                        break;
+                      }
+                      forEach(stack, paragraphify, this);
+                      loose = true;
+                      continue loose_search;
+                    }
+                    break;
+                  }
+                return ret;
+              };
+            }(),
+            blockquote: function blockquote(block, next) {
+              if (!block.match(/^>/m))
+                return undefined;
+              var jsonml = [];
+              if (block[0] !== '>') {
+                var lines = block.split(/\n/), prev = [], line_no = block.lineNumber;
+                while (lines.length && lines[0][0] !== '>') {
+                  prev.push(lines.shift());
+                  line_no++;
+                }
+                var abutting = mk_block(prev.join('\n'), '\n', block.lineNumber);
+                jsonml.push.apply(jsonml, this.processBlock(abutting, []));
+                block = mk_block(lines.join('\n'), block.trailing, line_no);
+              }
+              while (next.length && next[0][0] === '>') {
+                var b = next.shift();
+                block = mk_block(block + block.trailing + b, b.trailing, block.lineNumber);
+              }
+              var input = block.replace(/^> ?/gm, ''), old_tree = this.tree, processedBlock = this.toTree(input, ['blockquote']), attr = extract_attr(processedBlock);
+              if (attr && attr.references) {
+                delete attr.references;
+                if (isEmpty(attr))
+                  processedBlock.splice(1, 1);
+              }
+              jsonml.push(processedBlock);
+              return jsonml;
+            },
+            referenceDefn: function referenceDefn(block, next) {
+              var re = /^\s*\[(.*?)\]:\s*(\S+)(?:\s+(?:(['"])(.*?)\3|\((.*?)\)))?\n?/;
+              if (!block.match(re))
+                return undefined;
+              if (!extract_attr(this.tree))
+                this.tree.splice(1, 0, {});
+              var attrs = extract_attr(this.tree);
+              if (attrs.references === undefined)
+                attrs.references = {};
+              var b = this.loop_re_over_block(re, block, function (m) {
+                  if (m[2] && m[2][0] === '<' && m[2][m[2].length - 1] === '>')
+                    m[2] = m[2].substring(1, m[2].length - 1);
+                  var ref = attrs.references[m[1].toLowerCase()] = { href: m[2] };
+                  if (m[4] !== undefined)
+                    ref.title = m[4];
+                  else if (m[5] !== undefined)
+                    ref.title = m[5];
+                });
+              if (b.length)
+                next.unshift(mk_block(b, block.trailing));
+              return [];
+            },
+            para: function para(block) {
+              return [['para'].concat(this.processInline(block))];
+            }
+          },
+          inline: {
+            __oneElement__: function oneElement(text, patterns_or_re, previous_nodes) {
+              var m, res;
+              patterns_or_re = patterns_or_re || this.dialect.inline.__patterns__;
+              var re = new RegExp('([\\s\\S]*?)(' + (patterns_or_re.source || patterns_or_re) + ')');
+              m = re.exec(text);
+              if (!m) {
+                return [
+                  text.length,
+                  text
+                ];
+              } else if (m[1]) {
+                return [
+                  m[1].length,
+                  m[1]
+                ];
+              }
+              var res;
+              if (m[2] in this.dialect.inline) {
+                res = this.dialect.inline[m[2]].call(this, text.substr(m.index), m, previous_nodes || []);
+              }
+              res = res || [
+                m[2].length,
+                m[2]
+              ];
+              return res;
+            },
+            __call__: function inline(text, patterns) {
+              var out = [], res;
+              function add(x) {
+                if (typeof x === 'string' && typeof out[out.length - 1] === 'string')
+                  out[out.length - 1] += x;
+                else
+                  out.push(x);
+              }
+              while (text.length > 0) {
+                res = this.dialect.inline.__oneElement__.call(this, text, patterns, out);
+                text = text.substr(res.shift());
+                forEach(res, add);
+              }
+              return out;
+            },
+            ']': function () {
+            },
+            '}': function () {
+            },
+            __escape__: /^\\[\\`\*_{}\[\]()#\+.!\-]/,
+            '\\': function escaped(text) {
+              if (this.dialect.inline.__escape__.exec(text))
+                return [
+                  2,
+                  text.charAt(1)
+                ];
+              else
+                return [
+                  1,
+                  '\\'
+                ];
+            },
+            '![': function image(text) {
+              var m = text.match(/^!\[(.*?)\][ \t]*\([ \t]*([^")]*?)(?:[ \t]+(["'])(.*?)\3)?[ \t]*\)/);
+              if (m) {
+                if (m[2] && m[2][0] === '<' && m[2][m[2].length - 1] === '>')
+                  m[2] = m[2].substring(1, m[2].length - 1);
+                m[2] = this.dialect.inline.__call__.call(this, m[2], /\\/)[0];
+                var attrs = {
+                    alt: m[1],
+                    href: m[2] || ''
+                  };
+                if (m[4] !== undefined)
+                  attrs.title = m[4];
+                return [
+                  m[0].length,
+                  [
+                    'img',
+                    attrs
+                  ]
+                ];
+              }
+              m = text.match(/^!\[(.*?)\][ \t]*\[(.*?)\]/);
+              if (m) {
+                return [
+                  m[0].length,
+                  [
+                    'img_ref',
+                    {
+                      alt: m[1],
+                      ref: m[2].toLowerCase(),
+                      original: m[0]
+                    }
+                  ]
+                ];
+              }
+              return [
+                2,
+                '!['
+              ];
+            },
+            '[': function link(text) {
+              var orig = String(text);
+              var res = inline_until_char.call(this, text.substr(1), ']');
+              if (!res)
+                return [
+                  1,
+                  '['
+                ];
+              var consumed = 1 + res[0], children = res[1], link, attrs;
+              text = text.substr(consumed);
+              var m = text.match(/^\s*\([ \t]*([^"']*)(?:[ \t]+(["'])(.*?)\2)?[ \t]*\)/);
+              if (m) {
+                var url = m[1];
+                consumed += m[0].length;
+                if (url && url[0] === '<' && url[url.length - 1] === '>')
+                  url = url.substring(1, url.length - 1);
+                if (!m[3]) {
+                  var open_parens = 1;
+                  for (var len = 0; len < url.length; len++) {
+                    switch (url[len]) {
+                    case '(':
+                      open_parens++;
+                      break;
+                    case ')':
+                      if (--open_parens === 0) {
+                        consumed -= url.length - len;
+                        url = url.substring(0, len);
+                      }
+                      break;
+                    }
+                  }
+                }
+                url = this.dialect.inline.__call__.call(this, url, /\\/)[0];
+                attrs = { href: url || '' };
+                if (m[3] !== undefined)
+                  attrs.title = m[3];
+                link = [
+                  'link',
+                  attrs
+                ].concat(children);
+                return [
+                  consumed,
+                  link
+                ];
+              }
+              m = text.match(/^\s*\[(.*?)\]/);
+              if (m) {
+                consumed += m[0].length;
+                attrs = {
+                  ref: (m[1] || String(children)).toLowerCase(),
+                  original: orig.substr(0, consumed)
+                };
+                link = [
+                  'link_ref',
+                  attrs
+                ].concat(children);
+                return [
+                  consumed,
+                  link
+                ];
+              }
+              if (children.length === 1 && typeof children[0] === 'string') {
+                attrs = {
+                  ref: children[0].toLowerCase(),
+                  original: orig.substr(0, consumed)
+                };
+                link = [
+                  'link_ref',
+                  attrs,
+                  children[0]
+                ];
+                return [
+                  consumed,
+                  link
+                ];
+              }
+              return [
+                1,
+                '['
+              ];
+            },
+            '<': function autoLink(text) {
+              var m;
+              if ((m = text.match(/^<(?:((https?|ftp|mailto):[^>]+)|(.*?@.*?\.[a-zA-Z]+))>/)) !== null) {
+                if (m[3])
+                  return [
+                    m[0].length,
+                    [
+                      'link',
+                      { href: 'mailto:' + m[3] },
+                      m[3]
+                    ]
+                  ];
+                else if (m[2] === 'mailto')
+                  return [
+                    m[0].length,
+                    [
+                      'link',
+                      { href: m[1] },
+                      m[1].substr('mailto:'.length)
+                    ]
+                  ];
+                else
+                  return [
+                    m[0].length,
+                    [
+                      'link',
+                      { href: m[1] },
+                      m[1]
+                    ]
+                  ];
+              }
+              return [
+                1,
+                '<'
+              ];
+            },
+            '`': function inlineCode(text) {
+              var m = text.match(/(`+)(([\s\S]*?)\1)/);
+              if (m && m[2])
+                return [
+                  m[1].length + m[2].length,
+                  [
+                    'inlinecode',
+                    m[3]
+                  ]
+                ];
+              else {
+                return [
+                  1,
+                  '`'
+                ];
+              }
+            },
+            '  \n': function lineBreak() {
+              return [
+                3,
+                ['linebreak']
+              ];
+            }
+          }
+        };
+      function strong_em(tag, md) {
+        var state_slot = tag + '_state', other_slot = tag === 'strong' ? 'em_state' : 'strong_state';
+        function CloseTag(len) {
+          this.len_after = len;
+          this.name = 'close_' + md;
+        }
+        return function (text) {
+          if (this[state_slot][0] === md) {
+            this[state_slot].shift();
+            return [
+              text.length,
+              new CloseTag(text.length - md.length)
+            ];
+          } else {
+            var other = this[other_slot].slice(), state = this[state_slot].slice();
+            this[state_slot].unshift(md);
+            var res = this.processInline(text.substr(md.length));
+            var last = res[res.length - 1];
+            var check = this[state_slot].shift();
+            if (last instanceof CloseTag) {
+              res.pop();
+              var consumed = text.length - last.len_after;
+              return [
+                consumed,
+                [tag].concat(res)
+              ];
+            } else {
+              this[other_slot] = other;
+              this[state_slot] = state;
+              return [
+                md.length,
+                md
+              ];
+            }
+          }
+        };
+      }
+      Gruber.inline['**'] = strong_em('strong', '**');
+      Gruber.inline['__'] = strong_em('strong', '__');
+      Gruber.inline['*'] = strong_em('em', '*');
+      Gruber.inline['_'] = strong_em('em', '_');
+      Markdown.dialects.Gruber = Gruber;
+      Markdown.buildBlockOrder(Markdown.dialects.Gruber.block);
+      Markdown.buildInlinePatterns(Markdown.dialects.Gruber.inline);
+      var Maruku = DialectHelpers.subclassDialect(Gruber), extract_attr = MarkdownHelpers.extract_attr, forEach = MarkdownHelpers.forEach;
+      Maruku.processMetaHash = function processMetaHash(meta_string) {
+        var meta = split_meta_hash(meta_string), attr = {};
+        for (var i = 0; i < meta.length; ++i) {
+          if (/^#/.test(meta[i]))
+            attr.id = meta[i].substring(1);
+          else if (/^\./.test(meta[i])) {
+            if (attr['class'])
+              attr['class'] = attr['class'] + meta[i].replace(/./, ' ');
+            else
+              attr['class'] = meta[i].substring(1);
+          } else if (/\=/.test(meta[i])) {
+            var s = meta[i].split(/\=/);
+            attr[s[0]] = s[1];
+          }
+        }
+        return attr;
+      };
+      function split_meta_hash(meta_string) {
+        var meta = meta_string.split(''), parts = [''], in_quotes = false;
+        while (meta.length) {
+          var letter = meta.shift();
+          switch (letter) {
+          case ' ':
+            if (in_quotes)
+              parts[parts.length - 1] += letter;
+            else
+              parts.push('');
+            break;
+          case "'":
+          case '"':
+            in_quotes = !in_quotes;
+            break;
+          case '\\':
+            letter = meta.shift();
+          default:
+            parts[parts.length - 1] += letter;
+            break;
+          }
+        }
+        return parts;
+      }
+      Maruku.block.document_meta = function document_meta(block) {
+        if (block.lineNumber > 1)
+          return undefined;
+        if (!block.match(/^(?:\w+:.*\n)*\w+:.*$/))
+          return undefined;
+        if (!extract_attr(this.tree))
+          this.tree.splice(1, 0, {});
+        var pairs = block.split(/\n/);
+        for (var p in pairs) {
+          var m = pairs[p].match(/(\w+):\s*(.*)$/), key = m[1].toLowerCase(), value = m[2];
+          this.tree[1][key] = value;
+        }
+        return [];
+      };
+      Maruku.block.block_meta = function block_meta(block) {
+        var m = block.match(/(^|\n) {0,3}\{:\s*((?:\\\}|[^\}])*)\s*\}$/);
+        if (!m)
+          return undefined;
+        var attr = this.dialect.processMetaHash(m[2]), hash;
+        if (m[1] === '') {
+          var node = this.tree[this.tree.length - 1];
+          hash = extract_attr(node);
+          if (typeof node === 'string')
+            return undefined;
+          if (!hash) {
+            hash = {};
+            node.splice(1, 0, hash);
+          }
+          for (var a in attr)
+            hash[a] = attr[a];
+          return [];
+        }
+        var b = block.replace(/\n.*$/, ''), result = this.processBlock(b, []);
+        hash = extract_attr(result[0]);
+        if (!hash) {
+          hash = {};
+          result[0].splice(1, 0, hash);
+        }
+        for (var a in attr)
+          hash[a] = attr[a];
+        return result;
+      };
+      Maruku.block.definition_list = function definition_list(block, next) {
+        var tight = /^((?:[^\s:].*\n)+):\s+([\s\S]+)$/, list = ['dl'], i, m;
+        if (m = block.match(tight)) {
+          var blocks = [block];
+          while (next.length && tight.exec(next[0]))
+            blocks.push(next.shift());
+          for (var b = 0; b < blocks.length; ++b) {
+            var m = blocks[b].match(tight), terms = m[1].replace(/\n$/, '').split(/\n/), defns = m[2].split(/\n:\s+/);
+            for (i = 0; i < terms.length; ++i)
+              list.push([
+                'dt',
+                terms[i]
+              ]);
+            for (i = 0; i < defns.length; ++i) {
+              list.push(['dd'].concat(this.processInline(defns[i].replace(/(\n)\s+/, '$1'))));
+            }
+          }
+        } else {
+          return undefined;
+        }
+        return [list];
+      };
+      Maruku.block.table = function table(block) {
+        var _split_on_unescaped = function (s, ch) {
+          ch = ch || '\\s';
+          if (ch.match(/^[\\|\[\]{}?*.+^$]$/))
+            ch = '\\' + ch;
+          var res = [], r = new RegExp('^((?:\\\\.|[^\\\\' + ch + '])*)' + ch + '(.*)'), m;
+          while (m = s.match(r)) {
+            res.push(m[1]);
+            s = m[2];
+          }
+          res.push(s);
+          return res;
+        };
+        var leading_pipe = /^ {0,3}\|(.+)\n {0,3}\|\s*([\-:]+[\-| :]*)\n((?:\s*\|.*(?:\n|$))*)(?=\n|$)/, no_leading_pipe = /^ {0,3}(\S(?:\\.|[^\\|])*\|.*)\n {0,3}([\-:]+\s*\|[\-| :]*)\n((?:(?:\\.|[^\\|])*\|.*(?:\n|$))*)(?=\n|$)/, i, m;
+        if (m = block.match(leading_pipe)) {
+          m[3] = m[3].replace(/^\s*\|/gm, '');
+        } else if (!(m = block.match(no_leading_pipe))) {
+          return undefined;
+        }
+        var table = [
+            'table',
+            [
+              'thead',
+              ['tr']
+            ],
+            ['tbody']
+          ];
+        m[2] = m[2].replace(/\|\s*$/, '').split('|');
+        var html_attrs = [];
+        forEach(m[2], function (s) {
+          if (s.match(/^\s*-+:\s*$/))
+            html_attrs.push({ align: 'right' });
+          else if (s.match(/^\s*:-+\s*$/))
+            html_attrs.push({ align: 'left' });
+          else if (s.match(/^\s*:-+:\s*$/))
+            html_attrs.push({ align: 'center' });
+          else
+            html_attrs.push({});
+        });
+        m[1] = _split_on_unescaped(m[1].replace(/\|\s*$/, ''), '|');
+        for (i = 0; i < m[1].length; i++) {
+          table[1][1].push([
+            'th',
+            html_attrs[i] || {}
+          ].concat(this.processInline(m[1][i].trim())));
+        }
+        forEach(m[3].replace(/\|\s*$/gm, '').split('\n'), function (row) {
+          var html_row = ['tr'];
+          row = _split_on_unescaped(row, '|');
+          for (i = 0; i < row.length; i++)
+            html_row.push([
+              'td',
+              html_attrs[i] || {}
+            ].concat(this.processInline(row[i].trim())));
+          table[2].push(html_row);
+        }, this);
+        return [table];
+      };
+      Maruku.inline['{:'] = function inline_meta(text, matches, out) {
+        if (!out.length)
+          return [
+            2,
+            '{:'
+          ];
+        var before = out[out.length - 1];
+        if (typeof before === 'string')
+          return [
+            2,
+            '{:'
+          ];
+        var m = text.match(/^\{:\s*((?:\\\}|[^\}])*)\s*\}/);
+        if (!m)
+          return [
+            2,
+            '{:'
+          ];
+        var meta = this.dialect.processMetaHash(m[1]), attr = extract_attr(before);
+        if (!attr) {
+          attr = {};
+          before.splice(1, 0, attr);
+        }
+        for (var k in meta)
+          attr[k] = meta[k];
+        return [
+          m[0].length,
+          ''
+        ];
+      };
+      Markdown.dialects.Maruku = Maruku;
+      Markdown.dialects.Maruku.inline.__escape__ = /^\\[\\`\*_{}\[\]()#\+.!\-|:]/;
+      Markdown.buildBlockOrder(Markdown.dialects.Maruku.block);
+      Markdown.buildInlinePatterns(Markdown.dialects.Maruku.inline);
+      expose.Markdown = Markdown;
+      expose.parse = Markdown.parse;
+      expose.toHTML = Markdown.toHTML;
+      expose.toHTMLTree = Markdown.toHTMLTree;
+      expose.renderJsonML = Markdown.renderJsonML;
+    }(function () {
+      exports.markdown = {};
+      return exports.markdown;
+    }()));
+  });
+  require.define('/DotMotion.js', function (module, exports, __dirname, __filename) {
+    (function () {
+      var DotSet, El, Psy, RandomDotMotion, x, _, __hasProp = {}.hasOwnProperty, __extends = function (child, parent) {
+          for (var key in parent) {
+            if (__hasProp.call(parent, key))
+              child[key] = parent[key];
+          }
+          function ctor() {
+            this.constructor = child;
+          }
+          ctor.prototype = parent.prototype;
+          child.prototype = new ctor;
+          child.__super__ = parent.prototype;
+          return child;
+        };
+      Psy = require('/PsyCloud.js', module);
+      El = require('/Elements.js', module);
+      _ = require('/../node_modules/lodash/dist/lodash.js', module);
+      DotSet = function () {
+        DotSet.randomDelta = function (distance) {
+          var rads;
+          rads = Math.random() * Math.PI * 2;
+          return [
+            distance * Math.cos(rads),
+            distance * Math.sin(rads)
+          ];
+        };
+        DotSet.coherentDelta = function (distance, direction) {
+          return [
+            distance * Math.cos(Math.PI * direction / 180),
+            distance * Math.sin(Math.PI * direction / 180)
+          ];
+        };
+        DotSet.pointInCircle = function () {
+          var r, t, u;
+          t = 2 * Math.PI * Math.random();
+          u = Math.random() + Math.random();
+          r = u > 1 ? 2 - u : u;
+          return [
+            r * Math.cos(t),
+            r * Math.sin(t)
+          ];
+        };
+        DotSet.inCircle = function (center_x, center_y, radius, x, y) {
+          var squareDist;
+          squareDist = Math.pow(center_x - x, 2) + Math.pow(center_y - y, 2);
+          return squareDist <= Math.pow(radius, 2);
+        };
+        function DotSet(ndots, nparts, coherence) {
+          var _this = this;
+          this.ndots = ndots;
+          this.nparts = nparts != null ? nparts : 3;
+          if (coherence == null) {
+            coherence = .5;
+          }
+          this.frameNum = 0;
+          this.dotsPerSet = Math.round(this.ndots / this.nparts);
+          this.dotSets = _.map([
+            0,
+            1,
+            2
+          ], function (i) {
+            var _i, _ref, _results;
+            return _.map(function () {
+              _results = [];
+              for (var _i = 0, _ref = _this.dotsPerSet; 0 <= _ref ? _i < _ref : _i > _ref; 0 <= _ref ? _i++ : _i--) {
+                _results.push(_i);
+              }
+              return _results;
+            }.apply(this), function (d) {
+              return [
+                Math.random(),
+                Math.random()
+              ];
+            });
+          });
+        }
+        DotSet.prototype.getDotPartition = function (i) {
+          return this.dotSets[i];
+        };
+        DotSet.prototype.nextFrame = function (coherence, distance, direction) {
+          var delta, dset, i, partition, res, xy;
+          partition = this.frameNum % this.nparts;
+          dset = this.dotSets[partition];
+          res = function () {
+            var _i, _ref, _results;
+            _results = [];
+            for (i = _i = 0, _ref = dset.length; 0 <= _ref ? _i < _ref : _i > _ref; i = 0 <= _ref ? ++_i : --_i) {
+              xy = dset[i];
+              delta = Math.random() < coherence ? DotSet.coherentDelta(distance, direction) : DotSet.randomDelta(distance);
+              xy = [
+                xy[0] + delta[0],
+                xy[1] + delta[1]
+              ];
+              if (xy[0] < 0 || xy[0] > 1 || xy[1] < 0 || xy[1] > 1) {
+                xy = [
+                  Math.random(),
+                  Math.random()
+                ];
+              }
+              _results.push(dset[i] = xy);
+            }
+            return _results;
+          }();
+          this.frameNum = this.frameNum + 1;
+          return res;
+        };
+        return DotSet;
+      }();
+      exports.RandomDotMotion = RandomDotMotion = function (_super) {
+        __extends(RandomDotMotion, _super);
+        function RandomDotMotion(spec) {
+          if (spec == null) {
+            spec = {
+              x: 0,
+              y: 0,
+              numDots: 70,
+              apRadius: 400,
+              dotSpeed: .02,
+              dotSize: 2,
+              coherence: .55,
+              partitions: 3
+            };
+          }
+          this.numDots = spec.numDots;
+          this.apRadius = spec.apRadius;
+          this.dotSpeed = spec.dotSpeed;
+          this.dotSize = spec.dotSize;
+          this.coherence = spec.coherence;
+          this.partitions = spec.partitions;
+          this.x = spec.x;
+          this.y = spec.y;
+          this.dotSet = new DotSet(this.numDots, 3, .5);
+        }
+        RandomDotMotion.prototype.createDots = function () {
+          var dots, xy, _i, _len, _results;
+          dots = this.dotSet.nextFrame(this.coherence, this.dotSpeed, 180);
+          _results = [];
+          for (_i = 0, _len = dots.length; _i < _len; _i++) {
+            xy = dots[_i];
+            _results.push(new Kinetic.Rect({
+              x: this.x + this.apRadius * xy[0],
+              y: this.x + this.apRadius * xy[1],
+              width: this.dotSize,
+              height: this.dotSize,
+              fill: 'green'
+            }));
+          }
+          return _results;
+        };
+        RandomDotMotion.prototype.createInitialDots = function () {
+          var dpart, i, xy, _i, _ref, _results;
+          _results = [];
+          for (i = _i = 0, _ref = this.partitions; 0 <= _ref ? _i < _ref : _i > _ref; i = 0 <= _ref ? ++_i : --_i) {
+            dpart = this.dotSet.getDotPartition(i);
+            _results.push(function () {
+              var _j, _len, _results1;
+              _results1 = [];
+              for (_j = 0, _len = dpart.length; _j < _len; _j++) {
+                xy = dpart[_j];
+                _results1.push(new Kinetic.Rect({
+                  x: this.x + this.apRadius * xy[0],
+                  y: this.x + this.apRadius * xy[1],
+                  width: this.dotSize,
+                  height: this.dotSize,
+                  fill: 'green'
+                }));
+              }
+              return _results1;
+            }.call(this));
+          }
+          return _results;
+        };
+        RandomDotMotion.prototype.displayInitialDots = function (nodes, group) {
+          var node, _i, _len, _results;
+          _results = [];
+          for (_i = 0, _len = nodes.length; _i < _len; _i++) {
+            node = nodes[_i];
+            _results.push(group.add(node));
+          }
+          return _results;
+        };
+        RandomDotMotion.prototype.render = function (context, layer) {
+          var i, nodeSets, _i, _ref, _this = this;
+          this.groups = function () {
+            var _i, _ref, _results;
+            _results = [];
+            for (i = _i = 0, _ref = this.partitions; 0 <= _ref ? _i < _ref : _i > _ref; i = 0 <= _ref ? ++_i : --_i) {
+              _results.push(new Kinetic.Group({ listening: false }));
+            }
+            return _results;
+          }.call(this);
+          _.map(this.groups, function (g) {
+            return layer.add(g);
+          });
+          nodeSets = this.createInitialDots();
+          for (i = _i = 0, _ref = this.partitions; 0 <= _ref ? _i < _ref : _i > _ref; i = 0 <= _ref ? ++_i : --_i) {
+            this.displayInitialDots(nodeSets[i], this.groups[i]);
+          }
+          layer.draw();
+          this.anim = new Kinetic.Animation(function (frame) {
+            var curset, dx, part, xy, _j, _ref1, _results;
+            dx = _this.dotSet.nextFrame(_this.coherence, _this.dotSpeed, 180);
+            part = _this.dotSet.frameNum % _this.partitions;
+            curset = nodeSets[part];
+            _results = [];
+            for (i = _j = 0, _ref1 = curset.length; 0 <= _ref1 ? _j < _ref1 : _j > _ref1; i = 0 <= _ref1 ? ++_j : --_j) {
+              xy = dx[i];
+              xy = [
+                xy[0] * _this.apRadius,
+                xy[1] * _this.apRadius
+              ];
+              console.log(xy);
+              curset[i].setPosition(xy);
+              if (!DotSet.inCircle(.5 * _this.apRadius, .5 * _this.apRadius, _this.apRadius / 2, xy[0], xy[1])) {
+                _results.push(curset[i].hide());
+              } else {
+                _results.push(curset[i].show());
+              }
+            }
+            return _results;
+          }, layer);
+          layer.draw();
+          return this.anim.start();
+        };
+        RandomDotMotion.prototype.render2 = function (context, layer) {
+          var i, nodeSets, _i, _ref, _this = this;
+          this.layers = function () {
+            var _i, _ref, _results;
+            _results = [];
+            for (i = _i = 0, _ref = this.partitions; 0 <= _ref ? _i < _ref : _i > _ref; i = 0 <= _ref ? ++_i : --_i) {
+              _results.push(new Kinetic.Layer({ listening: false }));
+            }
+            return _results;
+          }.call(this);
+          _.map(this.layers, function (l) {
+            return context.stage.add(l);
+          });
+          nodeSets = this.createInitialDots();
+          for (i = _i = 0, _ref = this.partitions; 0 <= _ref ? _i < _ref : _i > _ref; i = 0 <= _ref ? ++_i : --_i) {
+            this.displayInitialDots(nodeSets[i], this.layers[i]);
+          }
+          this.anim = new Kinetic.Animation(function (frame) {
+            var curset, dx, part, xy, _j, _ref1;
+            dx = _this.dotSet.nextFrame(_this.coherence, _this.dotSpeed, 180);
+            part = _this.dotSet.frameNum % _this.partitions;
+            curset = nodeSets[part];
+            for (i = _j = 0, _ref1 = curset.length; 0 <= _ref1 ? _j < _ref1 : _j > _ref1; i = 0 <= _ref1 ? ++_j : --_j) {
+              xy = dx[i];
+              xy = [
+                xy[0] * _this.apRadius,
+                xy[1] * _this.apRadius
+              ];
+              console.log(xy);
+              curset[i].setPosition(xy);
+            }
+            return _this.layers[part].draw();
+          });
+          layer.draw();
+          return this.anim.start();
+        };
+        RandomDotMotion.prototype.stop = function (context) {
+          return this.anim.stop();
+        };
+        return RandomDotMotion;
+      }(El.Stimulus);
+      x = new DotSet(51, 3);
+      console.log(x.dotSets);
+      console.log('NEXT', x.nextFrame(.5, .01, 180));
     }.call(this));
   });
   global.Psy = require('/main.coffee');

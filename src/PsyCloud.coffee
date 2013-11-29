@@ -102,6 +102,31 @@ console.log(permute([1,2,3]))
 
 #exports.seqalong = seqalong
 
+
+exports.EventData =
+class EventData
+  constructor: (@name, @id, @data) ->
+
+exports.EventDataLog =
+class EventDataLog
+  constructor: ->
+    @eventStack = []
+
+  push: (ev) ->
+    @eventStack.push(ev)
+
+  last: ->
+    if @eventStack.length < 1
+      throw "EventLog is Empty, canot access last element"
+    @eventStack[@eventStack.length-1].data
+
+
+  findLast: (id) ->
+    len = @eventStack.length - 1
+    for i in [len .. 0]
+      return @eventStack[i] if @eventStack[i].id is id
+
+
 # ## Sampler
 # basic sampler that does not recycle its elements or allow sampling with replacement
 exports.Sampler =
@@ -418,11 +443,34 @@ exports.DataTable =
 
 exports.StimFactory =
   class StimFactory
-    makeStimulus: (name, params,context) ->
 
-    makeResponse: (name, params, context) ->
+    buildStimulus: (spec, context) ->
 
-    makeEvent: (stim, response, context) ->
+      stimType = _.keys(spec)[0]
+      params = _.values(spec)[0]
+
+
+      @makeStimulus(stimType, params, context)
+
+    buildResponse: (spec, context) ->
+      responseType = _.keys(spec)[0]
+      params = _.values(spec)[0]
+
+      @makeResponse(responseType, params, context)
+
+    buildEvent: (spec, context) ->
+      stimSpec = _.omit(spec, "Next")
+      responseSpec = _.pick(spec, "Next")
+
+      stim = @buildStimulus(stimSpec, context)
+      response = @buildResponse(responseSpec.Next, context)
+      @makeEvent(stim, response, context)
+
+    makeStimulus: (name, params,context) -> throw "unimplemented"
+
+    makeResponse: (name, params, context) -> throw "unimplemented"
+
+    makeEvent: (stim, response, context) -> throw "unimplemented"
 
 
 exports.MockStimFactory =
@@ -441,22 +489,27 @@ exports.MockStimFactory =
       [stim, response]
 
 
+exports.ActionNode =
+  class ActionNode
+
+    start: (context) ->
+
+    stop: (context) ->
+
 
 exports.Event =
-  class Event
+  class Event extends ActionNode
 
     constructor: (@stimulus, @response) ->
 
-    stop: ->
-      @stimulus.stop()
-      @response.stop()
+    stop: (context) ->
+      @stimulus.stop(context)
+      @response.stop(context)
 
     start: (context) ->
-      console.log("starting event", @stimulus)
       ## clear layer
 
       if not @stimulus.overlay
-        console.log("clearing event content")
         context.clearContent()
 
       #else
@@ -465,27 +518,26 @@ exports.Event =
         #context.drawBackground()
 
 
-      console.log("rendering event")
-
       ## render stimulus
       @stimulus.render(context, context.contentLayer)
 
       context.draw()
 
-      console.log("activating response")
-      ## activate response
 
+      ## activate response
       @response.activate(context).then((ret) =>
         ##
-        console.log("response is ", ret)
-        @stimulus.stop()
+        @stimulus.stop(context)
         ret
+      ,
+        (err) ->
+          throw new Error("Error during Response activation")
       )
 
 
 exports.Trial =
-  class Trial
-    constructor: (@events = [], @meta={}, @background) ->
+  class Trial extends ActionNode
+    constructor: (@events = [], @meta={}, @feedback, @background) ->
 
     numEvents: ->
       @events.length
@@ -493,7 +545,6 @@ exports.Trial =
     push: (event) -> @events.push(event)
 
     start: (context) ->
-      console.log("starting trial")
       context.clearBackground()
 
       if @background
@@ -505,29 +556,70 @@ exports.Trial =
       result = Q.resolve(0)
 
       for fun in farray
-        result = result.then(fun)
+        result = result.then(fun,
+          (err) ->
+            throw new Error("Error during Trial execution: ", err)
+        )
+
+      if @feedback?
+        result = result.then( (x) =>
+          spec = @feedback(context.eventData)
+          event = context.stimFactory.buildEvent(spec, context)
+          event.start(context)
+        ,
+          (err) ->
+            throw new Error("Error during Feedback execution: ", err)
+        )
+
       result
 
-    stop: -> ev.stop() for ev in @events
 
+    stop: (context) -> #ev.stop(context) for ev in @events
+
+
+exports.Block =
+  class Block extends ActionNode
+    constructor: (@trials) ->
+
+    start: (context) ->
+      farray = _.map(@trials, (trial) => (=> trial.start(context)))
+      result = Q.resolve(0)
+      for fun in farray
+        result = result.then(fun,
+          (err) ->
+            throw new Error("Error during Block execution: ", err)
+        )
+
+
+      result
+
+    stop: (context) -> #trial.stop(context) for trial in @trials
 
 
 exports.ExperimentContext =
   class ExperimentContext
-    eventLog: []
+    constructor: (@stimFactory) ->
+      @eventData = new EventDataLog()
 
-    trialNumber: 0
+      @log = []
 
-    currentTrial: new Trial([], {})
+      @trialNumber = 0
+
+      @currentTrial =  new Trial([], {})
+
+    pushEventData: (ev) ->
+      @eventData.push(ev)
 
     logEvent: (key, value) ->
 
       record = _.clone(@currentTrial.meta)
       record[key] = value
-      @eventLog.push(record)
-      console.log(@eventLog)
+      @log.push(record)
+      console.log(@log)
 
 
+    showEvent: (event) ->
+      event.start(this)
 
     start: (trialList) ->
       funList = _.map(trialList, (trial) => (=>
@@ -539,7 +631,6 @@ exports.ExperimentContext =
       result = Q.resolve(0)
 
       for fun in funList
-        console.log("building trial list")
         result = result.then(fun)
 
       result
@@ -567,45 +658,56 @@ class Presenter
   constructor: (@trialList, @display, @stimFactory = new MockStimFactory()) ->
     @trialBuilder = @display.Trial
 
-  buildStimulus: (event, context) ->
-    stimType = _.keys(event)[0]
-    params = _.values(event)[0]
-    console.log("making stim", stimType)
-    console.log("params", params)
+    if @display.Instructions?
+      @instructions = @stimFactory.makeInstructions(@display.Instructions)
+
+
+  buildStimulus: (spec, context) ->
+    stimType = _.keys(spec)[0]
+    params = _.values(spec)[0]
     @stimFactory.makeStimulus(stimType, params, context)
 
-  buildEvent: (event, context) ->
-    responseType = _.keys(event)[0]
-    params = _.values(event)[0]
+  buildResponse: (spec, context) ->
+    responseType = _.keys(spec)[0]
+    params = _.values(spec)[0]
     @stimFactory.makeResponse(responseType, params, context)
 
-  buildTrial: (eventSpec, record, context) ->
+  buildEvent: (spec, context) ->
+    stimSpec = _.omit(value, "Next")
+    responseSpec = _.pick(value, "Next")
+    stim = @buildStimulus(stimSpec, context)
+    response = @buildResponse(responseSpec, context)
+    @stimFactory.makeEvent(stim, response, context)
+
+  buildTrial: (eventSpec, record, context, feedback) ->
 
     events = for key, value of eventSpec
       stimSpec = _.omit(value, "Next")
       responseSpec = _.pick(value, "Next")
 
       stim = @buildStimulus(stimSpec, context)
-      response = @buildEvent(responseSpec.Next, context)
+      response = @buildResponse(responseSpec.Next, context)
       @stimFactory.makeEvent(stim, response, context)
 
-    new Trial(events, record, new Psy.Background([],  "gray"))
+    new Trial(events, record, feedback, new Psy.Background([],  "gray"))
 
   start: (context) ->
+
     tlist = for block in @trialList.blocks
       for trialNum in [0...block.length]
-        console.log("tnum", trialNum)
         record = _.clone(block[trialNum])
         record.$trialNumber = trialNum
-        console.log("record", record)
         trialSpec = @trialBuilder(record)
-        console.log("tspec", trialSpec)
-        trial = @buildTrial(trialSpec.Events, record, context)
-        console.log("trial", trial)
+        trial = @buildTrial(trialSpec.Events, record, context, trialSpec.Feedback)
         trial
 
-    console.log(tlist[0])
-    context.start(tlist[0])
+    if @instructions?
+      instructionsEvent = @stimFactory.makeEvent(@instructions,@instructions, context)
+      context.showEvent(instructionsEvent).then(=>
+        context.start(tlist[0])
+      )
+    else
+      context.start(tlist[0])
 
 
 # Experiment
@@ -645,7 +747,7 @@ exports.Experiment =
         responseSpec = _.pick(value, "Next")
 
         stim = @buildStimulus(stimSpec)
-        response = @buildEvent(responseSpec.Next)
+        response = @buildResponse(responseSpec.Next)
         @stimFactory.makeEvent(stim, response)
 
       new Trial(events, record)

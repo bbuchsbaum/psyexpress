@@ -30,6 +30,11 @@
 
   window.display = {
     Display: {
+      Instructions: {
+        pages: {
+          1: "\nWelcome to the Experiment!\n==========================\n\nThis is a test of visual short-term memory.\n\nOn every trial a number of colored squares will be briefly presented on the screen.\nTry to remember their colors. After the set of squares dissappear, a single 'probe'\nsquare will appear at one the locations previously occupied by one of the\nsquares. You will have to decide whether the 'probe' square is the same color as the square\nthat previously occupied the same spatial location.\n\n* If the probe square is the same color ( a match), press the 'n' key.\n\n* If the probe square is a different color ( a non match), press the 'm' key.\n\n* If your response is correct, you will will get a \"Correct!\" message, otherwise you will get an \"Incorrect!\" message.\n"
+        }
+      },
       Trial: function(trial) {
         var colors, i, pos, probeColor, probeIndex, probePos, setdiff, _i, _ref, _results;
         pos = coordSampler.take(trial.load);
@@ -44,12 +49,8 @@
           probeColor = colors[probeIndex];
         } else {
           setdiff = _.difference(clrs, [colors[probeIndex]]);
-          console.log("setdiff is", setdiff);
-          console.log("all colors", clrs);
           probeColor = Psy.sample(setdiff, 1)[0];
         }
-        console.log("probe color", probeColor);
-        console.log("trial.probe", trial.probe);
         return {
           Events: {
             1: {
@@ -91,9 +92,7 @@
               }
             },
             3: {
-              Clear: {
-                x: 0
-              },
+              Clear: null,
               Next: {
                 Timeout: {
                   duration: 800
@@ -125,6 +124,22 @@
                 }
               }
             }
+          },
+          Feedback: function(eventStack) {
+            var ev;
+            ev = eventStack.last();
+            return {
+              Text: {
+                content: ev.Accuracy === true ? "Correct!" : "Incorrrect!",
+                fill: ev.Accuracy ? "green" : "red",
+                position: "center"
+              },
+              Next: {
+                Timeout: {
+                  duration: 1000
+                }
+              }
+            };
           }
         };
       }
