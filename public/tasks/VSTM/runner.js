@@ -30,9 +30,11 @@
 
   window.display = {
     Display: {
-      Instructions: {
-        pages: {
-          1: "\nWelcome to the Experiment!\n==========================\n\nThis is a test of visual short-term memory.\n\nOn every trial a number of colored squares will be briefly presented on the screen.\nTry to remember their colors. After the set of squares dissappear, a single 'probe'\nsquare will appear at one the locations previously occupied by one of the\nsquares. You will have to decide whether the 'probe' square is the same color as the square\nthat previously occupied the same spatial location.\n\n* If the probe square is the same color ( a match), press the 'n' key.\n\n* If the probe square is a different color ( a non match), press the 'm' key.\n\n* If your response is correct, you will will get a \"Correct!\" message, otherwise you will get an \"Incorrect!\" message.\n"
+      Prelude: {
+        Instructions: {
+          pages: {
+            1: MarkDown("\nWelcome to the Experiment!\n==========================\n\nThis is a test of visual short-term memory.\n\nOn every trial a number of colored squares will be briefly presented on the screen.\nTry to remember their colors. After the set of squares dissappear, a single 'probe'\nsquare will appear at one the locations previously occupied by one of the\nsquares. You will have to decide whether the 'probe' square is the same color as the square\nthat previously occupied the same spatial location.\n\n* If the probe square is the same color ( a match), press the 'n' key.\n\n* If the probe square is a different color ( a non match), press the 'm' key.\n\n* If your response is correct, you will will get a \"Correct!\" message, otherwise you will get an \"Incorrect!\" message.\n")
+          }
         }
       },
       Trial: function(trial) {
@@ -148,7 +150,7 @@
 
   fnode = Psy.FactorSetNode.build(factorSet);
 
-  window.trials = fnode.trialList(5, 5);
+  window.trials = fnode.trialList(5, 1);
 
   window.trials.shuffle();
 

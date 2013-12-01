@@ -26,9 +26,10 @@ factorSet =
 
 window.display =
   Display:
-    Instructions:
-      pages:
-        1: """
+    Prelude:
+      Instructions:
+        pages:
+          1: MarkDown """
 
           Welcome to the Experiment!
           ==========================
@@ -47,7 +48,7 @@ window.display =
 
           * If your response is correct, you will will get a "Correct!" message, otherwise you will get an "Incorrect!" message.
 
-        """
+          """
 
 
     #Block: (context) ->
@@ -135,7 +136,7 @@ window.display =
 
 
 fnode = Psy.FactorSetNode.build(factorSet)
-window.trials = fnode.trialList(5, 5)
+window.trials = fnode.trialList(5, 1)
 window.trials.shuffle()
 
 window.iter = trials.blockIterator()

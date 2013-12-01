@@ -995,6 +995,7 @@ class KineticContext extends Psy.ExperimentContext
       position: "absolute"
       "z-index": 999
       outline: "none"
+      padding: "5px"
     )
 
     $("#container").attr("tabindex", 0)

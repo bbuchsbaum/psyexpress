@@ -87,14 +87,14 @@ test 'can build a TaskSchema from object literal', ->
 
 module("TrialList")
 test 'can build a TrialList', ->
-  tlist = new TrialList(6)
+  tlist = new Psy.TrialList(6)
   tlist.add(0,{wordtype: "word", lag: 1, repnum: 1})
   tlist.add(0,{wordtype: "pseudo", lag: 2, repnum: 2})
   tlist.add(0,{wordtype: "word", lag: 4, repnum: 3})
   tlist.add(1,{wordtype: "word", lag: 2, repnum: 3})
-  tlist.add(18,{wordtype: "word", lag: 2, repnum: 3})
+  tlist.add(5,{wordtype: "word", lag: 2, repnum: 3})
 
-  console.log("TLIST", tlist.ntrials())
+  equal(tlist.ntrials(), 5)
   console.log("TLIST", tlist.get(0,2))
 
 
@@ -129,6 +129,26 @@ test 'AbsoluteLayout handles raw pixels', ->
   xy = layout.computePosition([1000, 1000], [10, 90])
   equal(xy[0], 10)
   equal(xy[1], 90)
+
+
+
+module("Instructions")
+test 'Can create an Instructions element', ->
+  prelude = Prelude:
+    Instructions:
+      pages:
+        1:
+          MarkDown: """
+            Welcome to the Experiment!
+            ==========================
+          """
+        2:
+          Markdown: """
+            Awesome!!!
+            =========================
+          """
+
+
 
 
 

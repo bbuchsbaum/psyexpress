@@ -70,7 +70,7 @@
   });
   require.define('/PsyCloud.js', function (module, exports, __dirname, __filename) {
     (function () {
-      var ActionNode, ArrayIterator, Block, CellTable, CombinatoricSampler, ConditionalSampler, DataTable, Event, EventData, EventDataLog, ExhaustiveSampler, ExpDesign, Experiment, ExperimentContext, Factor, FactorNode, FactorSetNode, FactorSpec, GridSampler, ItemNode, Iterator, MatchSampler, MockStimFactory, Presenter, Q, Sampler, StimFactory, TaskNode, TaskSchema, Trial, TrialList, UniformSampler, VarSpec, VariablesNode, asArray, clone, deferred, des, msam, permute, prom, prom2, prom3, rep, repLen, sam, sample, _, _i, _ref, _results, __hasProp = {}.hasOwnProperty, __extends = function (child, parent) {
+      var ArrayIterator, Block, CellTable, CombinatoricSampler, ConditionalSampler, DataTable, Event, EventData, EventDataLog, ExhaustiveSampler, ExpDesign, Experiment, ExperimentContext, Factor, FactorNode, FactorSetNode, FactorSpec, GridSampler, ItemNode, Iterator, MatchSampler, MockStimFactory, Presenter, Q, RunnableNode, Sampler, StimFactory, TaskNode, TaskSchema, Trial, TrialList, UniformSampler, VarSpec, VariablesNode, asArray, buildEvent, buildResponse, buildStimulus, buildTrial, clone, deferred, des, msam, permute, prom, prom2, prom3, rep, repLen, sam, sample, _, _i, _ref, _results, __hasProp = {}.hasOwnProperty, __extends = function (child, parent) {
           for (var key in parent) {
             if (__hasProp.call(parent, key))
               child[key] = parent[key];
@@ -208,16 +208,6 @@
           return _results;
         }
       };
-      exports.permute = permute;
-      exports.rep = rep;
-      exports.repLen = repLen;
-      exports.clone = clone;
-      exports.sample = sample;
-      console.log(permute([
-        1,
-        2,
-        3
-      ]));
       exports.EventData = EventData = function () {
         function EventData(name, id, data) {
           this.name = name;
@@ -816,14 +806,36 @@
         };
         return MockStimFactory;
       }(StimFactory);
-      exports.ActionNode = ActionNode = function () {
-        function ActionNode() {
+      exports.RunnableNode = RunnableNode = function () {
+        function RunnableNode() {
         }
-        ActionNode.prototype.start = function (context) {
+        RunnableNode.functionList = function (nodes, context, callback) {
+          var _this = this;
+          return _.map(nodes, function (node) {
+            return function () {
+              if (callback != null) {
+                callback(node);
+              }
+              return node.start(context);
+            };
+          });
         };
-        ActionNode.prototype.stop = function (context) {
+        RunnableNode.chainFunctions = function (funArray) {
+          var fun, result, _j, _len;
+          result = Q.resolve(0);
+          for (_j = 0, _len = funArray.length; _j < _len; _j++) {
+            fun = funArray[_j];
+            result = result.then(fun, function (err) {
+              throw new Error('Error during execution: ', err);
+            });
+          }
+          return result;
         };
-        return ActionNode;
+        RunnableNode.prototype.start = function (context) {
+        };
+        RunnableNode.prototype.stop = function (context) {
+        };
+        return RunnableNode;
       }();
       exports.Event = Event = function (_super) {
         __extends(Event, _super);
@@ -846,11 +858,11 @@
             _this.stimulus.stop(context);
             return ret;
           }, function (err) {
-            throw new Error('Error during Response activation');
+            throw new Error('Error during Response activation', err);
           });
         };
         return Event;
-      }(ActionNode);
+      }(exports.RunnableNode);
       exports.Trial = Trial = function (_super) {
         __extends(Trial, _super);
         function Trial(events, meta, feedback, background) {
@@ -866,24 +878,16 @@
           return this.events.push(event);
         };
         Trial.prototype.start = function (context) {
-          var farray, fun, result, _j, _len, _this = this;
+          var farray, result, _this = this;
           context.clearBackground();
           if (this.background) {
             context.setBackground(this.background);
             context.drawBackground();
           }
-          farray = _.map(this.events, function (ev) {
-            return function () {
-              return ev.start(context);
-            };
+          farray = RunnableNode.functionList(this.events, context, function (event) {
+            return console.log('event callback', event);
           });
-          result = Q.resolve(0);
-          for (_j = 0, _len = farray.length; _j < _len; _j++) {
-            fun = farray[_j];
-            result = result.then(fun, function (err) {
-              throw new Error('Error during Trial execution: ', err);
-            });
-          }
+          result = RunnableNode.chainFunctions(farray);
           if (this.feedback != null) {
             result = result.then(function (x) {
               var event, spec;
@@ -899,32 +903,23 @@
         Trial.prototype.stop = function (context) {
         };
         return Trial;
-      }(ActionNode);
+      }(exports.RunnableNode);
       exports.Block = Block = function (_super) {
         __extends(Block, _super);
         function Block(trials) {
           this.trials = trials;
         }
         Block.prototype.start = function (context) {
-          var farray, fun, result, _j, _len, _this = this;
-          farray = _.map(this.trials, function (trial) {
-            return function () {
-              return trial.start(context);
-            };
+          var farray;
+          farray = RunnableNode.functionList(this.trials, context, function (trial) {
+            return console.log('trial callback', trial);
           });
-          result = Q.resolve(0);
-          for (_j = 0, _len = farray.length; _j < _len; _j++) {
-            fun = farray[_j];
-            result = result.then(fun, function (err) {
-              throw new Error('Error during Block execution: ', err);
-            });
-          }
-          return result;
+          return RunnableNode.chainFunctions(farray);
         };
         Block.prototype.stop = function (context) {
         };
         return Block;
-      }(ActionNode);
+      }(exports.RunnableNode);
       exports.ExperimentContext = ExperimentContext = function () {
         function ExperimentContext(stimFactory) {
           this.stimFactory = stimFactory;
@@ -946,21 +941,17 @@
         ExperimentContext.prototype.showEvent = function (event) {
           return event.start(this);
         };
-        ExperimentContext.prototype.start = function (trialList) {
-          var fun, funList, result, _j, _len, _this = this;
-          funList = _.map(trialList, function (trial) {
-            return function () {
-              _this.trialNumber += 1;
-              _this.currentTrial = trial;
-              return trial.start(_this);
-            };
-          });
-          result = Q.resolve(0);
-          for (_j = 0, _len = funList.length; _j < _len; _j++) {
-            fun = funList[_j];
-            result = result.then(fun);
+        ExperimentContext.prototype.start = function (blockList) {
+          var error, farray;
+          try {
+            farray = RunnableNode.functionList(blockList, this, function (block) {
+              return console.log('block callback', block);
+            });
+            return RunnableNode.chainFunctions(farray);
+          } catch (_error) {
+            error = _error;
+            return console.log('caught error:', error);
           }
-          return result;
         };
         ExperimentContext.prototype.clearContent = function () {
         };
@@ -976,83 +967,85 @@
         };
         return ExperimentContext;
       }();
+      buildStimulus = function (spec, context) {
+        var params, stimType;
+        stimType = _.keys(spec)[0];
+        params = _.values(spec)[0];
+        return context.stimFactory.makeStimulus(stimType, params, context);
+      };
+      buildResponse = function (spec, context) {
+        var params, responseType;
+        responseType = _.keys(spec)[0];
+        params = _.values(spec)[0];
+        return context.makeResponse(responseType, params, context);
+      };
+      buildEvent = function (spec, context) {
+        var response, responseSpec, stim, stimSpec;
+        stimSpec = _.omit(value, 'Next');
+        responseSpec = _.pick(value, 'Next');
+        stim = buildStimulus(stimSpec, context);
+        response = buildResponse(responseSpec, context);
+        return context.stimFactory.makeEvent(stim, response, context);
+      };
+      buildTrial = function (eventSpec, record, context, feedback, background) {
+        var events, key, response, responseSpec, stim, stimSpec, value;
+        if (background == null) {
+          background = new Psy.Background([], 'white');
+        }
+        events = function () {
+          var _results1;
+          _results1 = [];
+          for (key in eventSpec) {
+            value = eventSpec[key];
+            stimSpec = _.omit(value, 'Next');
+            responseSpec = _.pick(value, 'Next');
+            stim = buildStimulus(stimSpec, context);
+            response = buildResponse(responseSpec.Next, context);
+            _results1.push(context.stimFactory.makeEvent(stim, response, context));
+          }
+          return _results1;
+        }();
+        return new Trial(events, record, feedback, background);
+      };
       exports.Presenter = Presenter = function () {
         function Presenter(trialList, display, stimFactory) {
           this.trialList = trialList;
           this.display = display;
           this.stimFactory = stimFactory != null ? stimFactory : new MockStimFactory;
           this.trialBuilder = this.display.Trial;
-          if (this.display.Instructions != null) {
-            this.instructions = this.stimFactory.makeInstructions(this.display.Instructions);
+          if (this.display.Prelude != null) {
+            '';
           }
         }
-        Presenter.prototype.buildStimulus = function (spec, context) {
-          var params, stimType;
-          stimType = _.keys(spec)[0];
-          params = _.values(spec)[0];
-          return this.stimFactory.makeStimulus(stimType, params, context);
-        };
-        Presenter.prototype.buildResponse = function (spec, context) {
-          var params, responseType;
-          responseType = _.keys(spec)[0];
-          params = _.values(spec)[0];
-          return this.stimFactory.makeResponse(responseType, params, context);
-        };
-        Presenter.prototype.buildEvent = function (spec, context) {
-          var response, responseSpec, stim, stimSpec;
-          stimSpec = _.omit(value, 'Next');
-          responseSpec = _.pick(value, 'Next');
-          stim = this.buildStimulus(stimSpec, context);
-          response = this.buildResponse(responseSpec, context);
-          return this.stimFactory.makeEvent(stim, response, context);
-        };
-        Presenter.prototype.buildTrial = function (eventSpec, record, context, feedback) {
-          var events, key, response, responseSpec, stim, stimSpec, value;
-          events = function () {
-            var _results1;
-            _results1 = [];
-            for (key in eventSpec) {
-              value = eventSpec[key];
-              stimSpec = _.omit(value, 'Next');
-              responseSpec = _.pick(value, 'Next');
-              stim = this.buildStimulus(stimSpec, context);
-              response = this.buildResponse(responseSpec.Next, context);
-              _results1.push(this.stimFactory.makeEvent(stim, response, context));
-            }
-            return _results1;
-          }.call(this);
-          return new Trial(events, record, feedback, new Psy.Background([], 'gray'));
-        };
         Presenter.prototype.start = function (context) {
-          var block, instructionsEvent, record, tlist, trial, trialNum, trialSpec, _this = this;
-          tlist = function () {
+          var block, instructionsEvent, record, trialNum, trialSpec, _this = this;
+          this.blockList = function () {
             var _j, _len, _ref1, _results1;
             _ref1 = this.trialList.blocks;
             _results1 = [];
             for (_j = 0, _len = _ref1.length; _j < _len; _j++) {
               block = _ref1[_j];
-              _results1.push(function () {
+              _results1.push(new Block(function () {
                 var _k, _ref2, _results2;
                 _results2 = [];
                 for (trialNum = _k = 0, _ref2 = block.length; 0 <= _ref2 ? _k < _ref2 : _k > _ref2; trialNum = 0 <= _ref2 ? ++_k : --_k) {
                   record = _.clone(block[trialNum]);
                   record.$trialNumber = trialNum;
                   trialSpec = this.trialBuilder(record);
-                  trial = this.buildTrial(trialSpec.Events, record, context, trialSpec.Feedback);
-                  _results2.push(trial);
+                  _results2.push(buildTrial(trialSpec.Events, record, context, trialSpec.Feedback));
                 }
                 return _results2;
-              }.call(this));
+              }.call(this)));
             }
             return _results1;
           }.call(this);
           if (this.instructions != null) {
             instructionsEvent = this.stimFactory.makeEvent(this.instructions, this.instructions, context);
             return context.showEvent(instructionsEvent).then(function () {
-              return context.start(tlist[0]);
+              return context.start(_this.blockList);
             });
           } else {
-            return context.start(tlist[0]);
+            return context.start(this.blockList);
           }
         };
         return Presenter;
@@ -1707,6 +1700,15 @@
         return console.log('resolved with', x);
       });
       deferred.resolve(44);
+      exports.permute = permute;
+      exports.rep = rep;
+      exports.repLen = repLen;
+      exports.clone = clone;
+      exports.sample = sample;
+      exports.buildStimulus = buildStimulus;
+      exports.buildResponse = buildResponse;
+      exports.buildEvent = buildEvent;
+      exports.buildTrial = buildTrial;
     }.call(this));
   });
   require.define('/../node_modules/q/q.js', function (module, exports, __dirname, __filename) {
@@ -5829,7 +5831,8 @@
           $('#htmlcontainer').css({
             position: 'absolute',
             'z-index': 999,
-            outline: 'none'
+            outline: 'none',
+            padding: '5px'
           });
           $('#container').attr('tabindex', 0);
           return $('#container').css('outline', 'none');

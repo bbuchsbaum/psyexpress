@@ -1572,7 +1572,8 @@
       $("#htmlcontainer").css({
         position: "absolute",
         "z-index": 999,
-        outline: "none"
+        outline: "none",
+        padding: "5px"
       });
       $("#container").attr("tabindex", 0);
       return $("#container").css("outline", "none");
