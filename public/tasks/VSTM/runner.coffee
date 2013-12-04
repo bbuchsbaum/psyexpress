@@ -3,17 +3,16 @@
 
 stage = new Kinetic.Stage({
   container: 'container'
-  width: $(window).width() * 0.95
-  height: $(window).height() * 0.95
+  width: 900
+  height: 800
 })
 
 
-
 context = new Psy.KineticContext(stage)
-factory = new Psy.KineticStimFactory()
 
 
-clrs = ["red", "orange", "purple", "brown", "white", "black", "darkblue", "lightblue",  "yellow", "pink", "darkgreen", "lightgreen"]
+
+clrs = ["red", "orange", "purple", "brown", "black", "darkblue", "lightblue",  "yellow", "pink", "darkgreen", "lightgreen"]
 
 factorSet =
   probe:
@@ -29,7 +28,8 @@ window.display =
     Prelude:
       Instructions:
         pages:
-          1: MarkDown """
+          1:
+            MarkDown: """
 
           Welcome to the Experiment!
           ==========================
@@ -42,20 +42,27 @@ window.display =
           squares. You will have to decide whether the 'probe' square is the same color as the square
           that previously occupied the same spatial location.
 
-          * If the probe square is the same color ( a match), press the 'n' key.
+            * If the probe square is the same color ( a match), press the 'n' key.
 
-          * If the probe square is a different color ( a non match), press the 'm' key.
+            * If the probe square is a different color ( a non match), press the 'm' key.
 
-          * If your response is correct, you will will get a "Correct!" message, otherwise you will get an "Incorrect!" message.
+            * If your response is correct, you will will get a "Correct!" message, otherwise you will get an "Incorrect!" message.
 
           """
 
 
-    #Block: (context) ->
-    #  Start: null
-    #
-    #  End: null
+    Block: (context) ->
+      Start:
+        Text:
+          content: "Starting Block. Press 'Enter' to Continue"
+        Next:
+          keys: ['ENTER']
 
+      End:
+        Text:
+          content: "End of Block. Press Enter to continue to Next Block"
+        Next:
+          keys: ['ENTER']
 
     Trial: (trial) =>
 
@@ -97,7 +104,7 @@ window.display =
 
           Next:
             Timeout:
-              duration: 800
+              duration: 1500
         4:
           Group:
             stims:
@@ -116,17 +123,20 @@ window.display =
               id: "probeResponse"
               keys: ['n', 'm']
               correct: if trial.probe is "match" then 'n' else 'm'
-              timeout: 3000
+              #timeout: 3000
 
       Feedback: (eventStack) ->
         ev = eventStack.last()
-        Text:
-          content: if ev.Accuracy is true then "Correct!" else "Incorrrect!"
-          fill: if ev.Accuracy then "green" else "red"
-          position: "center"
+        HtmlIcon:
+          glyph: if ev.Accuracy is true then "checkmark" else "frown"
+          size: "massive"
+          x: "50%"
+          y: "50%"
+          #fill: if ev.Accuracy then "green" else "red"
+          #position: "center"
         Next:
-          Timeout: duration: 1000
-
+          Timeout:
+            duration: 1500
 
 
 
@@ -142,9 +152,12 @@ window.trials.shuffle()
 window.iter = trials.blockIterator()
 
 console.log("trials", trials)
-window.pres = new Psy.Presenter(trials, display.Display, factory)
-console.log("pres", pres)
-pres.start(context)
+try
+  window.pres = new Psy.Presenter(trials, display.Display, context, context.stimFactory)
+  console.log("pres", pres)
+  pres.start()
+catch error
+  console.log("Caught error", error.name, " ", error.message)
 
 #exp = new Psy.Experiment(@LexDesign, factory)
 #exp.start(context)

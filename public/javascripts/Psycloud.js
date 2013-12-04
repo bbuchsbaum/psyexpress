@@ -70,7 +70,7 @@
   });
   require.define('/PsyCloud.js', function (module, exports, __dirname, __filename) {
     (function () {
-      var ArrayIterator, Block, CellTable, CombinatoricSampler, ConditionalSampler, DataTable, Event, EventData, EventDataLog, ExhaustiveSampler, ExpDesign, Experiment, ExperimentContext, Factor, FactorNode, FactorSetNode, FactorSpec, GridSampler, ItemNode, Iterator, MatchSampler, MockStimFactory, Presenter, Q, RunnableNode, Sampler, StimFactory, TaskNode, TaskSchema, Trial, TrialList, UniformSampler, VarSpec, VariablesNode, asArray, buildEvent, buildResponse, buildStimulus, buildTrial, clone, deferred, des, msam, permute, prom, prom2, prom3, rep, repLen, sam, sample, _, _i, _ref, _results, __hasProp = {}.hasOwnProperty, __extends = function (child, parent) {
+      var ArrayIterator, Block, BlockSeq, CellTable, CombinatoricSampler, ConditionalSampler, DataTable, Event, EventData, EventDataLog, ExhaustiveSampler, ExpDesign, Experiment, ExperimentContext, Factor, FactorNode, FactorSetNode, FactorSpec, GridSampler, ItemNode, Iterator, MatchSampler, MockStimFactory, Prelude, Presenter, Q, RunnableNode, Sampler, StimFactory, TaskNode, TaskSchema, Trial, TrialList, UniformSampler, VarSpec, VariablesNode, asArray, buildEvent, buildPrelude, buildResponse, buildStimulus, buildTrial, clone, deferred, des, msam, permute, prom, prom2, prom3, rep, repLen, sam, sample, _, _i, _ref, _results, __hasProp = {}.hasOwnProperty, __extends = function (child, parent) {
           for (var key in parent) {
             if (__hasProp.call(parent, key))
               child[key] = parent[key];
@@ -150,8 +150,6 @@
           times = [times];
         }
         if (times.length !== 1 && vec.length !== times.length) {
-          console.log('vec', vec);
-          console.log('times', times);
           throw 'vec.length must equal times.length or times.length must be 1';
         }
         if (vec.length === times.length) {
@@ -806,8 +804,9 @@
         };
         return MockStimFactory;
       }(StimFactory);
-      exports.RunnableNode = RunnableNode = function () {
-        function RunnableNode() {
+      RunnableNode = function () {
+        function RunnableNode(children) {
+          this.children = children;
         }
         RunnableNode.functionList = function (nodes, context, callback) {
           var _this = this;
@@ -820,6 +819,16 @@
             };
           });
         };
+        RunnableNode.before = function (context) {
+          return function () {
+            return 0;
+          };
+        };
+        RunnableNode.after = function (context) {
+          return function () {
+            return 0;
+          };
+        };
         RunnableNode.chainFunctions = function (funArray) {
           var fun, result, _j, _len;
           result = Q.resolve(0);
@@ -831,12 +840,28 @@
           }
           return result;
         };
+        RunnableNode.prototype.numChildren = function () {
+          return this.children.length;
+        };
+        RunnableNode.prototype.length = function () {
+          return this.children.length;
+        };
         RunnableNode.prototype.start = function (context) {
+          var farray;
+          farray = RunnableNode.functionList(this.children, context, function (node) {
+            return console.log('callback', node);
+          });
+          return RunnableNode.chainFunctions(_.flatten([
+            this.before(context),
+            farray,
+            this.after(context)
+          ]));
         };
         RunnableNode.prototype.stop = function (context) {
         };
         return RunnableNode;
       }();
+      exports.RunnableNode = RunnableNode;
       exports.Event = Event = function (_super) {
         __extends(Event, _super);
         function Event(stimulus, response) {
@@ -862,64 +887,88 @@
           });
         };
         return Event;
-      }(exports.RunnableNode);
+      }(RunnableNode);
       exports.Trial = Trial = function (_super) {
         __extends(Trial, _super);
         function Trial(events, meta, feedback, background) {
-          this.events = events != null ? events : [];
+          if (events == null) {
+            events = [];
+          }
           this.meta = meta != null ? meta : {};
           this.feedback = feedback;
           this.background = background;
+          Trial.__super__.constructor.call(this, events);
         }
         Trial.prototype.numEvents = function () {
-          return this.events.length;
+          return this.children.length;
         };
         Trial.prototype.push = function (event) {
-          return this.events.push(event);
+          return this.children.push(event);
         };
-        Trial.prototype.start = function (context) {
-          var farray, result, _this = this;
-          context.clearBackground();
-          if (this.background) {
-            context.setBackground(this.background);
-            context.drawBackground();
-          }
-          farray = RunnableNode.functionList(this.events, context, function (event) {
-            return console.log('event callback', event);
-          });
-          result = RunnableNode.chainFunctions(farray);
-          if (this.feedback != null) {
-            result = result.then(function (x) {
-              var event, spec;
+        Trial.prototype.before = function (context) {
+          var _this = this;
+          return function () {
+            context.clearBackground();
+            if (_this.background != null) {
+              context.setBackground(_this.background);
+              return context.drawBackground();
+            }
+          };
+        };
+        Trial.prototype.after = function (context) {
+          var _this = this;
+          return function () {
+            var event, spec;
+            if (_this.feedback != null) {
               spec = _this.feedback(context.eventData);
               event = context.stimFactory.buildEvent(spec, context);
               return event.start(context);
-            }, function (err) {
-              throw new Error('Error during Feedback execution: ', err);
-            });
-          }
-          return result;
+            } else {
+              return Q.fcall(0);
+            }
+          };
+        };
+        Trial.prototype.start = function (context) {
+          var farray;
+          farray = RunnableNode.functionList(this.children, context, function (event) {
+            return console.log('event callback', event);
+          });
+          return RunnableNode.chainFunctions(_.flatten([
+            this.before(context),
+            farray,
+            this.after(context)
+          ]));
         };
         Trial.prototype.stop = function (context) {
         };
         return Trial;
-      }(exports.RunnableNode);
+      }(RunnableNode);
       exports.Block = Block = function (_super) {
         __extends(Block, _super);
-        function Block(trials) {
-          this.trials = trials;
+        function Block(children, blockEventBuilder) {
+          this.blockEventBuilder = blockEventBuilder;
+          Block.__super__.constructor.call(this, children);
         }
-        Block.prototype.start = function (context) {
-          var farray;
-          farray = RunnableNode.functionList(this.trials, context, function (trial) {
-            return console.log('trial callback', trial);
-          });
-          return RunnableNode.chainFunctions(farray);
+        Block.prototype.before = function (context) {
         };
-        Block.prototype.stop = function (context) {
+        Block.prototype.after = function (context) {
         };
         return Block;
-      }(exports.RunnableNode);
+      }(RunnableNode);
+      exports.Prelude = Prelude = function (_super) {
+        __extends(Prelude, _super);
+        function Prelude(children) {
+          Prelude.__super__.constructor.call(this, children);
+        }
+        return Prelude;
+      }(RunnableNode);
+      exports.BlockSeq = BlockSeq = function (_super) {
+        __extends(BlockSeq, _super);
+        function BlockSeq(children) {
+          BlockSeq.__super__.constructor.call(this, children);
+        }
+        return BlockSeq;
+      }(RunnableNode);
       exports.ExperimentContext = ExperimentContext = function () {
         function ExperimentContext(stimFactory) {
           this.stimFactory = stimFactory;
@@ -977,21 +1026,26 @@
         var params, responseType;
         responseType = _.keys(spec)[0];
         params = _.values(spec)[0];
-        return context.makeResponse(responseType, params, context);
+        return context.stimFactory.makeResponse(responseType, params, context);
       };
       buildEvent = function (spec, context) {
         var response, responseSpec, stim, stimSpec;
-        stimSpec = _.omit(value, 'Next');
-        responseSpec = _.pick(value, 'Next');
-        stim = buildStimulus(stimSpec, context);
-        response = buildResponse(responseSpec, context);
-        return context.stimFactory.makeEvent(stim, response, context);
+        stimSpec = _.omit(spec, 'Next');
+        responseSpec = _.pick(spec, 'Next');
+        console.log('stim Spec', stimSpec);
+        console.log('response Spec', responseSpec);
+        if (responseSpec == null || _.isEmpty(responseSpec)) {
+          console.log('keys of stimspec', _.keys(stimSpec));
+          stim = buildStimulus(stimSpec, context);
+          console.log('stim is', stim);
+          return context.stimFactory.makeEvent(stim, stim, context);
+        } else {
+          response = buildResponse(responseSpec, context);
+          return context.stimFactory.makeEvent(stim, response, context);
+        }
       };
       buildTrial = function (eventSpec, record, context, feedback, background) {
         var events, key, response, responseSpec, stim, stimSpec, value;
-        if (background == null) {
-          background = new Psy.Background([], 'white');
-        }
         events = function () {
           var _results1;
           _results1 = [];
@@ -1007,19 +1061,37 @@
         }();
         return new Trial(events, record, feedback, background);
       };
+      buildPrelude = function (preludeSpec, context) {
+        var events, key, spec, value;
+        console.log('building prelude');
+        events = function () {
+          var _results1;
+          _results1 = [];
+          for (key in preludeSpec) {
+            value = preludeSpec[key];
+            spec = {};
+            spec[key] = value;
+            console.log('prelude spec', spec);
+            _results1.push(buildEvent(spec, context));
+          }
+          return _results1;
+        }();
+        console.log('prelude events', events);
+        return new Prelude(events);
+      };
       exports.Presenter = Presenter = function () {
-        function Presenter(trialList, display, stimFactory) {
+        function Presenter(trialList, display, context) {
           this.trialList = trialList;
           this.display = display;
-          this.stimFactory = stimFactory != null ? stimFactory : new MockStimFactory;
+          this.context = context;
           this.trialBuilder = this.display.Trial;
-          if (this.display.Prelude != null) {
-            '';
-          }
+          this.prelude = this.display.Prelude != null ? buildPrelude(this.display.Prelude, this.context) : new Prelude([]);
+          this.blockEventBuilder = this.display.Block;
+          console.log('prelude is', this.prelude);
         }
-        Presenter.prototype.start = function (context) {
-          var block, instructionsEvent, record, trialNum, trialSpec, _this = this;
-          this.blockList = function () {
+        Presenter.prototype.start = function () {
+          var block, record, trialNum, trialSpec, _this = this;
+          this.blockList = new BlockSeq(function () {
             var _j, _len, _ref1, _results1;
             _ref1 = this.trialList.blocks;
             _results1 = [];
@@ -1032,21 +1104,16 @@
                   record = _.clone(block[trialNum]);
                   record.$trialNumber = trialNum;
                   trialSpec = this.trialBuilder(record);
-                  _results2.push(buildTrial(trialSpec.Events, record, context, trialSpec.Feedback));
+                  _results2.push(buildTrial(trialSpec.Events, record, this.context, trialSpec.Feedback));
                 }
                 return _results2;
               }.call(this)));
             }
             return _results1;
-          }.call(this);
-          if (this.instructions != null) {
-            instructionsEvent = this.stimFactory.makeEvent(this.instructions, this.instructions, context);
-            return context.showEvent(instructionsEvent).then(function () {
-              return context.start(_this.blockList);
-            });
-          } else {
-            return context.start(this.blockList);
-          }
+          }.call(this));
+          return this.prelude.start(this.context).then(function () {
+            return _this.blockList.start(_this.context);
+          });
         };
         return Presenter;
       }();
@@ -1709,6 +1776,7 @@
       exports.buildResponse = buildResponse;
       exports.buildEvent = buildEvent;
       exports.buildTrial = buildTrial;
+      exports.buildPrelude = buildPrelude;
     }.call(this));
   });
   require.define('/../node_modules/q/q.js', function (module, exports, __dirname, __filename) {
@@ -4424,7 +4492,7 @@
   });
   require.define('/Elements.js', function (module, exports, __dirname, __filename) {
     (function () {
-      var AbsoluteLayout, Arrow, Background, Bacon, Blank, CanvasBorder, Circle, Clear, ClickResponse, Confirm, FirstResponse, FixationCross, GridLayout, GridLines, Group, HtmlButton, HtmlLink, Instructions, KeyPressResponse, KineticContext, KineticStimFactory, Layout, Markdown, MousePressResponse, MultipleChoice, Paragraph, Picture, Prompt, Psy, Q, Rectangle, Response, Sequence, Sound, SpaceKeyResponse, StartButton, Stimulus, Text, TextInput, Timeout, TypedResponse, computeGridCells, convertPercentageToFraction, convertToCoordinate, disableBrowserBack, doTimer, elog, getTimestamp, isPercentage, markdown, position, tmp1, tmp2, tmp3, _, _ref, _ref1, _ref2, _ref3, __hasProp = {}.hasOwnProperty, __extends = function (child, parent) {
+      var AbsoluteLayout, Arrow, Background, Bacon, Blank, CanvasBorder, Circle, Clear, ClickResponse, Confirm, FirstResponse, FixationCross, GridLayout, GridLines, Group, HtmlButton, HtmlIcon, HtmlLink, Instructions, KeyPressResponse, KineticContext, KineticStimFactory, Layout, Markdown, Message, MousePressResponse, MultipleChoice, Page, Paragraph, Picture, Prompt, Psy, Q, Rectangle, Response, Sequence, Sound, SpaceKeyResponse, StartButton, Stimulus, Text, TextInput, Timeout, TypedResponse, computeGridCells, convertPercentageToFraction, convertToCoordinate, disableBrowserBack, doTimer, elog, getTimestamp, input, isPercentage, li, markdown, position, renderable, tmp1, tmp2, tmp3, ul, _, _ref, _ref1, _ref2, _ref3, _ref4, __hasProp = {}.hasOwnProperty, __extends = function (child, parent) {
           for (var key in parent) {
             if (__hasProp.call(parent, key))
               child[key] = parent[key];
@@ -4442,12 +4510,13 @@
       _ = require('/../node_modules/lodash/dist/lodash.js', module);
       Q = require('/../node_modules/q/q.js', module);
       markdown = require('/lib/markdown.js', module).markdown;
-      if (typeof window !== 'undefined' && window !== null ? (_ref = window.performance) != null ? _ref.now : void 0 : void 0) {
+      _ref = require('/../node_modules/teacup/lib/teacup.js', module), renderable = _ref.renderable, ul = _ref.ul, li = _ref.li, input = _ref.input;
+      if (typeof window !== 'undefined' && window !== null ? (_ref1 = window.performance) != null ? _ref1.now : void 0 : void 0) {
         console.log('Using high performance timer');
         getTimestamp = function () {
           return window.performance.now();
         };
-      } else if (typeof window !== 'undefined' && window !== null ? (_ref1 = window.performance) != null ? _ref1.webkitNow : void 0 : void 0) {
+      } else if (typeof window !== 'undefined' && window !== null ? (_ref2 = window.performance) != null ? _ref2.webkitNow : void 0 : void 0) {
         console.log('Using webkit high performance timer');
         getTimestamp = function () {
           return window.performance.webkitNow();
@@ -4538,8 +4607,8 @@
       exports.AbsoluteLayout = AbsoluteLayout = function (_super) {
         __extends(AbsoluteLayout, _super);
         function AbsoluteLayout() {
-          _ref2 = AbsoluteLayout.__super__.constructor.apply(this, arguments);
-          return _ref2;
+          _ref3 = AbsoluteLayout.__super__.constructor.apply(this, arguments);
+          return _ref3;
         }
         AbsoluteLayout.prototype.computePosition = function (dim, constraints) {
           var x, y;
@@ -4579,11 +4648,11 @@
         };
         return GridLayout;
       }(exports.Layout);
-      exports.Stimulus = Stimulus = function () {
+      Stimulus = function () {
         function Stimulus(spec, defaultArgs) {
-          var _ref3;
+          var _ref4;
           this.spec = _.defaults(spec, defaultArgs);
-          if (((_ref3 = this.spec) != null ? _ref3.id : void 0) != null) {
+          if (((_ref4 = this.spec) != null ? _ref4.id : void 0) != null) {
             this.id = this.spec.id;
           } else {
             this.id = _.uniqueId('stim_');
@@ -4622,7 +4691,8 @@
         };
         return Stimulus;
       }();
-      exports.Response = Response = function (_super) {
+      exports.Stimulus = Stimulus;
+      Response = function (_super) {
         __extends(Response, _super);
         function Response(spec, defaultArgs) {
           Response.__super__.constructor.call(this, spec, defaultArgs);
@@ -4631,6 +4701,7 @@
         };
         return Response;
       }(Stimulus);
+      exports.Response = Response;
       tmp1 = new Psy.EventData('hello', '24', { x: 8 });
       tmp2 = new Psy.EventData('goodbye', '24', { x: 8 });
       tmp3 = new Psy.EventData('goyyyyyy', '29', { x: 8 });
@@ -4913,8 +4984,8 @@
           });
         }
         GridLines.prototype.render = function (context, layer) {
-          var i, line, x, y, _i, _j, _ref3, _ref4, _results;
-          for (i = _i = 0, _ref3 = this.spec.rows; 0 <= _ref3 ? _i <= _ref3 : _i >= _ref3; i = 0 <= _ref3 ? ++_i : --_i) {
+          var i, line, x, y, _i, _j, _ref4, _ref5, _results;
+          for (i = _i = 0, _ref4 = this.spec.rows; 0 <= _ref4 ? _i <= _ref4 : _i >= _ref4; i = 0 <= _ref4 ? ++_i : --_i) {
             y = this.spec.y + i * context.height() / this.spec.rows;
             line = new Kinetic.Line({
               points: [
@@ -4930,7 +5001,7 @@
             layer.add(line);
           }
           _results = [];
-          for (i = _j = 0, _ref4 = this.spec.cols; 0 <= _ref4 ? _j <= _ref4 : _j >= _ref4; i = 0 <= _ref4 ? ++_j : --_j) {
+          for (i = _j = 0, _ref5 = this.spec.cols; 0 <= _ref5 ? _j <= _ref5 : _j >= _ref5; i = 0 <= _ref5 ? ++_j : --_j) {
             x = this.spec.x + i * context.width() / this.spec.cols;
             line = new Kinetic.Line({
               points: [
@@ -5118,24 +5189,24 @@
       exports.Group = Group = function (_super) {
         __extends(Group, _super);
         function Group(stims, layout) {
-          var stim, _i, _len, _ref3;
+          var stim, _i, _len, _ref4;
           this.stims = stims;
           Group.__super__.constructor.call(this, {}, {});
           if (layout) {
             this.layout = layout;
-            _ref3 = this.stims;
-            for (_i = 0, _len = _ref3.length; _i < _len; _i++) {
-              stim = _ref3[_i];
+            _ref4 = this.stims;
+            for (_i = 0, _len = _ref4.length; _i < _len; _i++) {
+              stim = _ref4[_i];
               stim.layout = layout;
             }
           }
         }
         Group.prototype.render = function (context, layer) {
-          var stim, _i, _len, _ref3, _results;
-          _ref3 = this.stims;
+          var stim, _i, _len, _ref4, _results;
+          _ref4 = this.stims;
           _results = [];
-          for (_i = 0, _len = _ref3.length; _i < _len; _i++) {
-            stim = _ref3[_i];
+          for (_i = 0, _len = _ref4.length; _i < _len; _i++) {
+            stim = _ref4[_i];
             _results.push(stim.render(context, layer));
           }
           return _results;
@@ -5150,7 +5221,7 @@
           Background.__super__.constructor.call(this, {}, {});
         }
         Background.prototype.render = function (context, layer) {
-          var background, stim, _i, _len, _ref3, _results;
+          var background, stim, _i, _len, _ref4, _results;
           background = new Kinetic.Rect({
             x: 0,
             y: 0,
@@ -5160,10 +5231,10 @@
             fill: this.fill
           });
           layer.add(background);
-          _ref3 = this.stims;
+          _ref4 = this.stims;
           _results = [];
-          for (_i = 0, _len = _ref3.length; _i < _len; _i++) {
-            stim = _ref3[_i];
+          for (_i = 0, _len = _ref4.length; _i < _len; _i++) {
+            stim = _ref4[_i];
             _results.push(stim.render(context, layer));
           }
           return _results;
@@ -5183,9 +5254,9 @@
             this.soa = Psy.repLen(this.soa, this.stims.length);
           }
           this.onsets = function () {
-            var _i, _ref3, _results;
+            var _i, _ref4, _results;
             _results = [];
-            for (i = _i = 0, _ref3 = this.soa.length; 0 <= _ref3 ? _i < _ref3 : _i > _ref3; i = 0 <= _ref3 ? ++_i : --_i) {
+            for (i = _i = 0, _ref4 = this.soa.length; 0 <= _ref4 ? _i < _ref4 : _i > _ref4; i = 0 <= _ref4 ? ++_i : --_i) {
               _results.push(_.reduce(this.soa.slice(0, +i + 1 || 9e9), function (x, acc) {
                 return x + acc;
               }));
@@ -5194,11 +5265,11 @@
           }.call(this);
         }
         Sequence.prototype.genseq = function (context, layer) {
-          var deferred, _i, _ref3, _results, _this = this;
+          var deferred, _i, _ref4, _results, _this = this;
           deferred = Q.defer();
           _.forEach(function () {
             _results = [];
-            for (var _i = 0, _ref3 = this.stims.length; 0 <= _ref3 ? _i < _ref3 : _i > _ref3; 0 <= _ref3 ? _i++ : _i--) {
+            for (var _i = 0, _ref4 = this.stims.length; 0 <= _ref4 ? _i < _ref4 : _i > _ref4; 0 <= _ref4 ? _i++ : _i--) {
               _results.push(_i);
             }
             return _results;
@@ -5223,9 +5294,9 @@
           return deferred.promise;
         };
         Sequence.prototype.render = function (context, layer) {
-          var i, result, _i, _ref3, _this = this;
+          var i, result, _i, _ref4, _this = this;
           result = Q.resolve(0);
-          for (i = _i = 0, _ref3 = this.times; 0 <= _ref3 ? _i < _ref3 : _i > _ref3; i = 0 <= _ref3 ? ++_i : --_i) {
+          for (i = _i = 0, _ref4 = this.times; 0 <= _ref4 ? _i < _ref4 : _i > _ref4; i = 0 <= _ref4 ? ++_i : --_i) {
             result = result.then(function () {
               return _this.genseq(context, layer);
             });
@@ -5612,7 +5683,7 @@
           });
         }
         return Paragraph;
-      }(exports.Stimulus);
+      }(Stimulus);
       exports.Markdown = Markdown = function (_super) {
         __extends(Markdown, _super);
         function Markdown(spec) {
@@ -5625,20 +5696,22 @@
             this.spec = {};
             this.spec.content = spec;
           }
+          this.html = $('<div></div>');
           if (this.spec.url != null) {
             $.ajax({
               url: this.spec.url,
               success: function (result) {
                 _this.spec.content = result;
-                return _this.html = markdown.toHTML(_this.spec.content);
+                return _this.html.append(markdown.toHTML(_this.spec.content));
               },
               error: function (result) {
                 return console.log('ajax failure', result);
               }
             });
           } else {
-            this.html = markdown.toHTML(this.spec.content);
+            this.html.append($(markdown.toHTML(this.spec.content)));
           }
+          this.html.addClass('markdown');
         }
         Markdown.prototype.render = function (context, layer) {
           console.log(this.html);
@@ -5647,29 +5720,87 @@
         };
         return Markdown;
       }(exports.Stimulus);
+      exports.Message = Message = function (_super) {
+        __extends(Message, _super);
+        function Message(spec) {
+          if (spec == null) {
+            spec = {};
+          }
+          Message.__super__.constructor.call(this, spec, {
+            title: 'Message!',
+            content: 'your content here',
+            color: '',
+            size: 'large'
+          });
+          this.message = $('<div></div>').addClass(this.messageClass());
+          this.title = $('<div>' + this.spec.title + '</div>').addClass('header');
+          this.content = $('<p>' + this.spec.content + '</p>');
+          this.message.append(this.title);
+          this.message.append(this.content);
+        }
+        Message.prototype.messageClass = function () {
+          return 'ui message ' + this.spec.color + ' ' + this.spec.size;
+        };
+        Message.prototype.render = function (context, layer) {
+          console.log(this.message.html());
+          return context.appendHtml(this.message);
+        };
+        return Message;
+      }(Stimulus);
+      exports.Page = Page = function (_super) {
+        __extends(Page, _super);
+        function Page(spec) {
+          if (spec == null) {
+            spec = {};
+          }
+          Page.__super__.constructor.call(this, spec, { html: '<div>HTML Page</div>' });
+          this.html = this.spec.html;
+        }
+        Page.prototype.render = function (context, layer) {
+          return context.appendHtml(this.html);
+        };
+        return Page;
+      }(Stimulus);
       exports.Instructions = Instructions = function (_super) {
         __extends(Instructions, _super);
         function Instructions(spec) {
-          var div, key, md, value;
+          var content, div, i, itm, key, md, type, value;
           if (spec == null) {
             spec = {};
           }
           Instructions.__super__.constructor.call(this, spec, {});
           this.pages = function () {
-            var _ref3, _results;
-            _ref3 = this.spec.pages;
+            var _ref4, _results;
+            _ref4 = this.spec.pages;
             _results = [];
-            for (key in _ref3) {
-              value = _ref3[key];
-              md = new Markdown(value);
+            for (key in _ref4) {
+              value = _ref4[key];
+              type = _.keys(value)[0];
+              content = _.values(value)[0];
+              console.log('type', type);
+              console.log('value', value);
+              md = new Markdown(content);
               div = $('<div></div>');
               _results.push($(div).addClass('ui stacked segment').append(md.html));
             }
             return _results;
           }.call(this);
-          this.back = $('<div class="ui green disabled labeled icon button"><i class="left arrow icon"></i>Back</div>').attr('id', 'instructions_back');
-          this.next = $('<div class="ui green right labeled icon button"><i class="right arrow icon"></i>Next</div>').attr('id', 'instructions_next');
-          this.nav = $('<div></div>').append(this.back).append('\n').append(this.next).css('position', 'absolute').css('right', '0px');
+          this.menu = $('<div></div>').addClass('ui borderless pagination menu');
+          this.back = $('<a class="item">\n  <i class="icon left arrow"></i>  Previous\n </a>').attr('id', 'instructions_back');
+          this.next = $('<a class="item">\nNext <i class="icon right arrow"></i>\n</a>').attr('id', 'instructions_next');
+          this.menu.append(this.back).append('\n');
+          this.items = function () {
+            var _i, _ref4, _results;
+            _results = [];
+            for (i = _i = 1, _ref4 = this.pages.length; 1 <= _ref4 ? _i <= _ref4 : _i >= _ref4; i = 1 <= _ref4 ? ++_i : --_i) {
+              itm = $('<a class="item">' + i + '</a>');
+              this.menu.append(itm).append('\n');
+              _results.push(itm);
+            }
+            return _results;
+          }.call(this);
+          this.items[0].addClass('active');
+          this.menu.append(this.next).css('position', 'absolute').css('right', '15px');
           this.currentPage = 0;
         }
         Instructions.prototype.activate = function (context) {
@@ -5680,7 +5811,9 @@
           var _this = this;
           this.next.click(function (e) {
             if (_this.currentPage < _this.pages.length - 1) {
+              _this.items[_this.currentPage].removeClass('active');
               _this.currentPage += 1;
+              _this.items[_this.currentPage].addClass('active');
               context.clearHtml();
               return _this.render(context);
             } else {
@@ -5690,7 +5823,9 @@
           this.back.click(function (e) {
             console.log('back click!');
             if (_this.currentPage > 0) {
+              _this.items[_this.currentPage].removeClass('active');
               _this.currentPage -= 1;
+              _this.items[_this.currentPage].addClass('active');
               context.clearHtml();
               return _this.render(context);
             }
@@ -5700,10 +5835,37 @@
           }
           $(this.pages[this.currentPage]).css({ 'min-height': context.height() - 50 });
           context.appendHtml(this.pages[this.currentPage]);
-          return context.appendHtml(this.nav);
+          return context.appendHtml(this.menu);
         };
         return Instructions;
-      }(exports.Response);
+      }(Response);
+      exports.HtmlIcon = HtmlIcon = function (_super) {
+        __extends(HtmlIcon, _super);
+        function HtmlIcon(spec) {
+          if (spec == null) {
+            spec = {};
+          }
+          HtmlIcon.__super__.constructor.call(this, spec, {
+            glyph: 'plane',
+            size: 'massive'
+          });
+          this.html = $('<i></i>');
+          this.html.addClass(this.spec.glyph + ' ' + this.spec.size + ' icon');
+          if (this.spec.x != null && this.spec.y != null) {
+            this.html.css({
+              position: 'absolute',
+              left: this.spec.x,
+              top: this.spec.y
+            });
+          }
+        }
+        HtmlIcon.prototype.render = function (context, layer) {
+          context.appendHtml(this.html);
+          console.log('width of icon is', $(this.html).width());
+          return console.log('height of icon is', $(this.html).height());
+        };
+        return HtmlIcon;
+      }(Stimulus);
       exports.HtmlLink = HtmlLink = function (_super) {
         __extends(HtmlLink, _super);
         function HtmlLink(spec) {
@@ -5748,7 +5910,7 @@
           return context.appendHtml(this.html);
         };
         return HtmlButton;
-      }(exports.Stimulus);
+      }(Stimulus);
       exports.MultipleChoice = MultipleChoice = function (_super) {
         __extends(MultipleChoice, _super);
         function MultipleChoice(spec) {
@@ -5772,7 +5934,7 @@
           });
         }
         MultipleChoice.prototype.render = function (context, layer) {
-          var choice, i, questionText, _i, _ref3, _results;
+          var choice, i, questionText, _i, _ref4, _results;
           questionText = new Kinetic.Text({
             x: this.spec.x,
             y: this.spec.y,
@@ -5783,7 +5945,7 @@
           });
           layer.add(questionText);
           _results = [];
-          for (i = _i = 0, _ref3 = this.spec.options.length; 0 <= _ref3 ? _i < _ref3 : _i > _ref3; i = 0 <= _ref3 ? ++_i : --_i) {
+          for (i = _i = 0, _ref4 = this.spec.options.length; 0 <= _ref4 ? _i < _ref4 : _i > _ref4; i = 0 <= _ref4 ? ++_i : --_i) {
             choice = new Kinetic.Text({
               x: this.spec.x + 5,
               y: questionText.getHeight() * (i + 1) + 30,
@@ -5799,7 +5961,7 @@
           return _results;
         };
         return MultipleChoice;
-      }(exports.Stimulus);
+      }(Stimulus);
       exports.KineticContext = KineticContext = function (_super) {
         __extends(KineticContext, _super);
         function KineticContext(stage) {
@@ -5835,10 +5997,12 @@
             padding: '5px'
           });
           $('#container').attr('tabindex', 0);
-          return $('#container').css('outline', 'none');
+          $('#container').css('outline', 'none');
+          return $('#container').css('padding', '5px');
         };
         KineticContext.prototype.clearHtml = function () {
-          return $('#htmlcontainer').empty();
+          $('#htmlcontainer').empty();
+          return $('#htmlcontainer').hide();
         };
         KineticContext.prototype.appendHtml = function (input) {
           $('#htmlcontainer').addClass('htmllayer');
@@ -5863,7 +6027,7 @@
           if (draw == null) {
             draw = false;
           }
-          this.hideHtml();
+          this.clearHtml();
           this.contentLayer.removeChildren();
           if (draw) {
             return this.draw();
@@ -5916,8 +6080,8 @@
       exports.KineticStimFactory = KineticStimFactory = function (_super) {
         __extends(KineticStimFactory, _super);
         function KineticStimFactory() {
-          _ref3 = KineticStimFactory.__super__.constructor.apply(this, arguments);
-          return _ref3;
+          _ref4 = KineticStimFactory.__super__.constructor.apply(this, arguments);
+          return _ref4;
         }
         KineticStimFactory.prototype.makeLayout = function (name, params, context) {
           switch (name) {
@@ -5941,10 +6105,6 @@
             return new FixationCross(params);
           case 'Clear':
             return new Clear(params);
-          case 'Rectangle':
-            return new Rectangle(params);
-          case 'Text':
-            return new Text(params);
           case 'Group':
             names = _.map(params.stims, function (stim) {
               return _.keys(stim)[0];
@@ -5953,9 +6113,9 @@
               return _.values(stim)[0];
             });
             stims = function () {
-              var _i, _ref4, _results;
+              var _i, _ref5, _results;
               _results = [];
-              for (i = _i = 0, _ref4 = names.length; 0 <= _ref4 ? _i < _ref4 : _i > _ref4; i = 0 <= _ref4 ? ++_i : --_i) {
+              for (i = _i = 0, _ref5 = names.length; 0 <= _ref5 ? _i < _ref5 : _i > _ref5; i = 0 <= _ref5 ? ++_i : --_i) {
                 _results.push(callee(names[i], props[i]));
               }
               return _results;
@@ -5963,6 +6123,14 @@
             layoutName = _.keys(params.layout)[0];
             layoutParams = _.values(params.layout)[0];
             return new Group(stims, this.makeLayout(layoutName, layoutParams, context));
+          case 'Instructions':
+            return new Instructions(params);
+          case 'Rectangle':
+            return new Rectangle(params);
+          case 'Text':
+            return new Text(params);
+          case 'HtmlIcon':
+            return new HtmlIcon(params);
           default:
             throw 'No Stimulus type of name ' + name;
           }
@@ -9107,6 +9275,352 @@
       x = new DotSet(51, 3);
       console.log(x.dotSets);
       console.log('NEXT', x.nextFrame(.5, .01, 180));
+    }.call(this));
+  });
+  require.define('/../node_modules/teacup/lib/teacup.js', function (module, exports, __dirname, __filename) {
+    (function () {
+      var Teacup, doctypes, elements, merge_elements, tagName, _fn, _fn1, _fn2, _i, _j, _k, _len, _len1, _len2, _ref, _ref1, _ref2, __slice = [].slice, __indexOf = [].indexOf || function (item) {
+          for (var i = 0, l = this.length; i < l; i++) {
+            if (i in this && this[i] === item)
+              return i;
+          }
+          return -1;
+        };
+      doctypes = {
+        'default': '<!DOCTYPE html>',
+        '5': '<!DOCTYPE html>',
+        'xml': '<?xml version="1.0" encoding="utf-8" ?>',
+        'transitional': '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">',
+        'strict': '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">',
+        'frameset': '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Frameset//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-frameset.dtd">',
+        '1.1': '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">',
+        'basic': '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML Basic 1.1//EN" "http://www.w3.org/TR/xhtml-basic/xhtml-basic11.dtd">',
+        'mobile': '<!DOCTYPE html PUBLIC "-//WAPFORUM//DTD XHTML Mobile 1.2//EN" "http://www.openmobilealliance.org/tech/DTD/xhtml-mobile12.dtd">',
+        'ce': '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "ce-html-1.0-transitional.dtd">'
+      };
+      elements = {
+        regular: 'a abbr address article aside audio b bdi bdo blockquote body button canvas caption cite code colgroup datalist dd del details dfn div dl dt em fieldset figcaption figure footer form h1 h2 h3 h4 h5 h6 head header hgroup html i iframe ins kbd label legend li map mark menu meter nav noscript object ol optgroup option output p pre progress q rp rt ruby s samp section select small span strong sub summary sup table tbody td textarea tfoot th thead time title tr u ul video',
+        raw: 'script style',
+        'void': 'area base br col command embed hr img input keygen link meta param source track wbr',
+        obsolete: 'applet acronym bgsound dir frameset noframes isindex listing nextid noembed plaintext rb strike xmp big blink center font marquee multicol nobr spacer tt',
+        obsolete_void: 'basefont frame'
+      };
+      merge_elements = function () {
+        var a, args, element, result, _i, _j, _len, _len1, _ref;
+        args = 1 <= arguments.length ? __slice.call(arguments, 0) : [];
+        result = [];
+        for (_i = 0, _len = args.length; _i < _len; _i++) {
+          a = args[_i];
+          _ref = elements[a].split(' ');
+          for (_j = 0, _len1 = _ref.length; _j < _len1; _j++) {
+            element = _ref[_j];
+            if (__indexOf.call(result, element) < 0) {
+              result.push(element);
+            }
+          }
+        }
+        return result;
+      };
+      Teacup = function () {
+        function Teacup() {
+          this.htmlOut = null;
+        }
+        Teacup.prototype.resetBuffer = function (html) {
+          var previous;
+          if (html == null) {
+            html = null;
+          }
+          previous = this.htmlOut;
+          this.htmlOut = html;
+          return previous;
+        };
+        Teacup.prototype.render = function () {
+          var args, previous, result, template;
+          template = arguments[0], args = 2 <= arguments.length ? __slice.call(arguments, 1) : [];
+          previous = this.resetBuffer('');
+          try {
+            template.apply(null, args);
+          } finally {
+            result = this.resetBuffer(previous);
+          }
+          return result;
+        };
+        Teacup.prototype.cede = function () {
+          var args;
+          args = 1 <= arguments.length ? __slice.call(arguments, 0) : [];
+          return this.render.apply(this, args);
+        };
+        Teacup.prototype.renderable = function (template) {
+          var teacup;
+          teacup = this;
+          return function () {
+            var args, result;
+            args = 1 <= arguments.length ? __slice.call(arguments, 0) : [];
+            if (teacup.htmlOut === null) {
+              teacup.htmlOut = '';
+              try {
+                template.apply(this, args);
+              } finally {
+                result = teacup.resetBuffer();
+              }
+              return result;
+            } else {
+              return template.apply(this, args);
+            }
+          };
+        };
+        Teacup.prototype.renderAttr = function (name, value) {
+          var k, v;
+          if (value == null) {
+            return ' ' + name;
+          }
+          if (value === false) {
+            return '';
+          }
+          if (name === 'data' && typeof value === 'object') {
+            return function () {
+              var _results;
+              _results = [];
+              for (k in value) {
+                v = value[k];
+                _results.push(this.renderAttr('data-' + k, v));
+              }
+              return _results;
+            }.call(this).join('');
+          }
+          if (value === true) {
+            value = name;
+          }
+          return ' ' + name + '=' + this.quote(this.escape(value.toString()));
+        };
+        Teacup.prototype.attrOrder = [
+          'id',
+          'class'
+        ];
+        Teacup.prototype.renderAttrs = function (obj) {
+          var name, result, value, _i, _len, _ref;
+          result = '';
+          _ref = this.attrOrder;
+          for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+            name = _ref[_i];
+            if (!(name in obj)) {
+              continue;
+            }
+            result += this.renderAttr(name, obj[name]);
+            delete obj[name];
+          }
+          for (name in obj) {
+            value = obj[name];
+            result += this.renderAttr(name, value);
+          }
+          return result;
+        };
+        Teacup.prototype.renderContents = function (contents) {
+          if (contents == null) {
+          } else if (typeof contents === 'function') {
+            return contents.call(this);
+          } else {
+            return this.text(contents);
+          }
+        };
+        Teacup.prototype.isSelector = function (string) {
+          var _ref;
+          return string.length > 1 && ((_ref = string[0]) === '#' || _ref === '.');
+        };
+        Teacup.prototype.parseSelector = function (selector) {
+          var classes, id, klass, token, _i, _len, _ref, _ref1;
+          id = null;
+          classes = [];
+          _ref = selector.split('.');
+          for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+            token = _ref[_i];
+            if (id) {
+              classes.push(token);
+            } else {
+              _ref1 = token.split('#'), klass = _ref1[0], id = _ref1[1];
+              if (klass !== '') {
+                classes.push(token);
+              }
+            }
+          }
+          return {
+            id: id,
+            classes: classes
+          };
+        };
+        Teacup.prototype.normalizeArgs = function (args) {
+          var arg, attrs, classes, contents, id, index, selector, _i, _len;
+          attrs = {};
+          selector = null;
+          contents = null;
+          for (index = _i = 0, _len = args.length; _i < _len; index = ++_i) {
+            arg = args[index];
+            if (arg != null) {
+              switch (typeof arg) {
+              case 'string':
+                if (index === 0 && this.isSelector(arg)) {
+                  selector = this.parseSelector(arg);
+                } else {
+                  contents = arg;
+                }
+                break;
+              case 'function':
+              case 'number':
+              case 'boolean':
+                contents = arg;
+                break;
+              case 'object':
+                if (arg.constructor === Object) {
+                  attrs = arg;
+                } else {
+                  contents = arg;
+                }
+                break;
+              default:
+                contents = arg;
+              }
+            }
+          }
+          if (selector != null) {
+            id = selector.id, classes = selector.classes;
+            if (id != null) {
+              attrs.id = id;
+            }
+            if (classes != null ? classes.length : void 0) {
+              attrs['class'] = classes.join(' ');
+            }
+          }
+          return {
+            attrs: attrs,
+            contents: contents
+          };
+        };
+        Teacup.prototype.tag = function () {
+          var args, attrs, contents, tagName, _ref;
+          tagName = arguments[0], args = 2 <= arguments.length ? __slice.call(arguments, 1) : [];
+          _ref = this.normalizeArgs(args), attrs = _ref.attrs, contents = _ref.contents;
+          this.raw('<' + tagName + this.renderAttrs(attrs) + '>');
+          this.renderContents(contents);
+          return this.raw('</' + tagName + '>');
+        };
+        Teacup.prototype.rawTag = function () {
+          var args, attrs, contents, tagName, _ref;
+          tagName = arguments[0], args = 2 <= arguments.length ? __slice.call(arguments, 1) : [];
+          _ref = this.normalizeArgs(args), attrs = _ref.attrs, contents = _ref.contents;
+          this.raw('<' + tagName + this.renderAttrs(attrs) + '>');
+          this.raw(contents);
+          return this.raw('</' + tagName + '>');
+        };
+        Teacup.prototype.selfClosingTag = function () {
+          var args, attrs, contents, tag, _ref;
+          tag = arguments[0], args = 2 <= arguments.length ? __slice.call(arguments, 1) : [];
+          _ref = this.normalizeArgs(args), attrs = _ref.attrs, contents = _ref.contents;
+          if (contents) {
+            throw new Error('Teacup: <' + tag + '/> must not have content.  Attempted to nest ' + contents);
+          }
+          return this.raw('<' + tag + this.renderAttrs(attrs) + ' />');
+        };
+        Teacup.prototype.coffeescript = function (fn) {
+          return this.raw('<script type="text/javascript">(function() {\n  var __slice = [].slice,\n      __indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; i < l; i++) { if (i in this && this[i] === item) return i; } return -1; },\n      __hasProp = {}.hasOwnProperty,\n      __extends = function(child, parent) { for (var key in parent) { if (__hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; };\n  (' + fn.toString() + ')();\n})();</script>');
+        };
+        Teacup.prototype.comment = function (text) {
+          return this.raw('<!--' + this.escape(text) + '-->');
+        };
+        Teacup.prototype.doctype = function (type) {
+          if (type == null) {
+            type = 5;
+          }
+          return this.raw(doctypes[type]);
+        };
+        Teacup.prototype.ie = function (condition, contents) {
+          this.raw('<!--[if ' + this.escape(condition) + ']>');
+          this.renderContents(contents);
+          return this.raw('<![endif]-->');
+        };
+        Teacup.prototype.text = function (s) {
+          if (this.htmlOut == null) {
+            throw new Error("Teacup: can't call a tag function outside a rendering context");
+          }
+          return this.htmlOut += s != null && this.escape(s.toString()) || '';
+        };
+        Teacup.prototype.raw = function (s) {
+          if (s == null) {
+            return;
+          }
+          return this.htmlOut += s;
+        };
+        Teacup.prototype.escape = function (text) {
+          return text.toString().replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        };
+        Teacup.prototype.quote = function (value) {
+          return '"' + value + '"';
+        };
+        Teacup.prototype.tags = function () {
+          var bound, boundMethodNames, method, _fn, _i, _len, _this = this;
+          bound = {};
+          boundMethodNames = [].concat('cede coffeescript comment doctype escape ie raw render renderable script tag text'.split(' '), merge_elements('regular', 'obsolete', 'raw', 'void', 'obsolete_void'));
+          _fn = function (method) {
+            return bound[method] = function () {
+              var args;
+              args = 1 <= arguments.length ? __slice.call(arguments, 0) : [];
+              return _this[method].apply(_this, args);
+            };
+          };
+          for (_i = 0, _len = boundMethodNames.length; _i < _len; _i++) {
+            method = boundMethodNames[_i];
+            _fn(method);
+          }
+          return bound;
+        };
+        return Teacup;
+      }();
+      _ref = merge_elements('regular', 'obsolete');
+      _fn = function (tagName) {
+        return Teacup.prototype[tagName] = function () {
+          var args;
+          args = 1 <= arguments.length ? __slice.call(arguments, 0) : [];
+          return this.tag.apply(this, [tagName].concat(__slice.call(args)));
+        };
+      };
+      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+        tagName = _ref[_i];
+        _fn(tagName);
+      }
+      _ref1 = merge_elements('raw');
+      _fn1 = function (tagName) {
+        return Teacup.prototype[tagName] = function () {
+          var args;
+          args = 1 <= arguments.length ? __slice.call(arguments, 0) : [];
+          return this.rawTag.apply(this, [tagName].concat(__slice.call(args)));
+        };
+      };
+      for (_j = 0, _len1 = _ref1.length; _j < _len1; _j++) {
+        tagName = _ref1[_j];
+        _fn1(tagName);
+      }
+      _ref2 = merge_elements('void', 'obsolete_void');
+      _fn2 = function (tagName) {
+        return Teacup.prototype[tagName] = function () {
+          var args;
+          args = 1 <= arguments.length ? __slice.call(arguments, 0) : [];
+          return this.selfClosingTag.apply(this, [tagName].concat(__slice.call(args)));
+        };
+      };
+      for (_k = 0, _len2 = _ref2.length; _k < _len2; _k++) {
+        tagName = _ref2[_k];
+        _fn2(tagName);
+      }
+      if (typeof module !== 'undefined' && module !== null ? module.exports : void 0) {
+        module.exports = new Teacup().tags();
+        module.exports.Teacup = Teacup;
+      } else if (typeof define === 'function' && define.amd) {
+        define('teacup', [], function () {
+          return new Teacup().tags();
+        });
+      } else {
+        window.teacup = new Teacup().tags();
+        window.teacup.Teacup = Teacup;
+      }
     }.call(this));
   });
   global.Psy = require('/main.coffee');

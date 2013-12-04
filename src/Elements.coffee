@@ -3,6 +3,7 @@ Bacon = require("./lib/Bacon").Bacon
 _ = require('lodash')
 Q = require("q")
 markdown = require("./lib/markdown").markdown
+{renderable, ul, li, input} = require('teacup')
 
 
 if window?.performance?.now
@@ -131,7 +132,6 @@ class GridLayout extends exports.Layout
 
 
 
-exports.Stimulus =
 class Stimulus
 
   constructor: (spec, defaultArgs) ->
@@ -164,15 +164,15 @@ class Stimulus
 
   #id: -> @spec.id or _.uniqueId()
 
+exports.Stimulus = Stimulus
 
-exports.Response =
 class Response extends Stimulus
   constructor: (spec, defaultArgs) ->
     super(spec, defaultArgs)
 
   activate: (context) ->
 
-
+exports.Response = Response
 
 tmp1 = new Psy.EventData("hello", "24", {x: 8})
 tmp2 = new Psy.EventData("goodbye", "24", {x: 8})
@@ -798,7 +798,7 @@ class Text extends Stimulus
 
 
 exports.Paragraph =
-class Paragraph extends exports.Stimulus
+class Paragraph extends Stimulus
   constructor: (spec = {}) ->
     super(spec, { content: "", x: 50, y: 50, width: 600, fill: "black", fontSize: 18, fontFamily: "Arial", lineHeight: 1, textAlign: "center", position: null} )
 
@@ -810,20 +810,21 @@ class Markdown extends exports.Stimulus
       @spec = {}
       @spec.content = spec
 
+    @html = $("<div></div>")
+
     if @spec.url?
       $.ajax(
         url: @spec.url
         success: (result) =>
           @spec.content = result
-          @html = markdown.toHTML(@spec.content)
+          @html.append( markdown.toHTML(@spec.content))
         error: (result) =>
           console.log("ajax failure", result)
       )
     else
-      @html = markdown.toHTML(@spec.content)
+      @html.append($(markdown.toHTML(@spec.content)))
 
-
-
+    @html.addClass("markdown")
 
   render: (context, layer) ->
     console.log(@html)
@@ -831,22 +832,78 @@ class Markdown extends exports.Stimulus
     context.appendHtml(@html)
 
 
+exports.Message =
+class Message extends Stimulus
+
+
+  constructor: (spec={}) ->
+    super(spec, {title: "Message!", content: "your content here", color: "", size: "large"})
+    @message = $("<div></div>").addClass(@messageClass())
+    @title =  $("<div>#{@spec.title}</div>").addClass("header")
+    @content = $("<p>#{@spec.content}</p>")
+    @message.append(@title)
+    @message.append(@content)
+
+  messageClass: ->
+    "ui message " + @spec.color + " " + @spec.size
+
+  render: (context, layer) ->
+    console.log(@message.html())
+    context.appendHtml(@message)
+
+
+
+
+exports.Page =
+class Page extends Stimulus
+  constructor: (spec={}) ->
+    super(spec, {html: "<div>HTML Page</div>"})
+    @html = @spec.html
+
+  render: (context, layer) ->
+    context.appendHtml(@html)
+
+
 exports.Instructions =
-class Instructions extends exports.Response
+class Instructions extends Response
   constructor: (spec={}) ->
     super(spec, {})
 
     @pages = for key, value of @spec.pages
-
-      md = new Markdown(value)
+      type = _.keys(value)[0]
+      ## assumes type is Markdown
+      content = _.values(value)[0]
+      console.log("type", type)
+      console.log("value", value)
+      md = new Markdown(content)
       div=$("<div></div>")
-
       $(div).addClass("ui stacked segment").append(md.html)
 
-    @back = $("""<div class="ui green disabled labeled icon button"><i class="left arrow icon"></i>Back</div>""").attr("id", "instructions_back")
-    @next = $("""<div class="ui green right labeled icon button"><i class="right arrow icon"></i>Next</div>""").attr("id", "instructions_next")
-    @nav = $("<div></div>").append(@back).append("\n").append(@next).css("position", "absolute").css("right", "0px")
+    @menu = $("<div></div>").addClass("ui borderless pagination menu")
 
+
+    #@back = $("""<div class="ui green disabled labeled icon button"><i class="left arrow icon"></i>Back</div>""").attr("id", "instructions_back")
+    #@next = $("""<div class="ui green right labeled icon button"><i class="right arrow icon"></i>Next</div>""").attr("id", "instructions_next")
+
+    @back = $("""
+              <a class="item">
+                <i class="icon left arrow"></i>  Previous
+               </a>""").attr("id", "instructions_back")
+
+    @next = $("""
+              <a class="item">
+              Next <i class="icon right arrow"></i>
+              </a>""").attr("id", "instructions_next")
+
+    @menu.append(@back).append("\n")
+    @items = for i in [1..@pages.length]
+      itm = $("""<a class="item">#{i}</a>""")
+      @menu.append(itm).append("\n")
+      itm
+    @items[0].addClass("active")
+    @menu.append(@next).css("position", "absolute").css("right", "15px")
+
+    #@nav = $("<div></div>").addClass("ui borderless pagination menu").append(@back).append("\n").append(@next).css("position", "absolute").css("right", "0px")
 
     @currentPage = 0
 
@@ -858,7 +915,9 @@ class Instructions extends exports.Response
   render: (context, layer) ->
     @next.click (e) =>
       if (@currentPage < (@pages.length-1))
+        @items[@currentPage].removeClass("active")
         @currentPage += 1
+        @items[@currentPage].addClass("active")
         context.clearHtml()
         @render(context)
       else
@@ -867,7 +926,9 @@ class Instructions extends exports.Response
     @back.click (e) =>
       console.log("back click!")
       if (@currentPage > 0)
+        @items[@currentPage].removeClass("active")
         @currentPage -= 1
+        @items[@currentPage].addClass("active")
         context.clearHtml()
         @render(context)
 
@@ -878,11 +939,31 @@ class Instructions extends exports.Response
     )
 
     context.appendHtml(@pages[@currentPage])
-    context.appendHtml(@nav)
+    context.appendHtml(@menu)
+    #context.appendHtml(@nav)
 
 
 
 
+exports.HtmlIcon =
+class HtmlIcon extends Stimulus
+  constructor: (spec={}) ->
+    super(spec, {glyph: "plane", size: "massive"})
+    @html = $("<i></i>")
+    @html.addClass(@spec.glyph + " " + @spec.size + " icon")
+
+    if (@spec.x? and @spec.y?)
+      @html.css({
+        position: "absolute"
+        left: @spec.x
+        top: @spec.y
+      })
+
+  render: (context, layer) ->
+
+    context.appendHtml(@html)
+    console.log("width of icon is", $(@html).width())
+    console.log("height of icon is", $(@html).height())
 
 
 exports.HtmlLink =
@@ -903,7 +984,7 @@ class HtmlLink extends exports.Stimulus
 
 
 exports.HtmlButton =
-  class HtmlButton extends exports.Stimulus
+  class HtmlButton extends Stimulus
     constructor: (spec={}) ->
       super(spec, {label: "Next", class: ""})
 
@@ -923,7 +1004,7 @@ exports.HtmlButton =
 
 
 exports.MultipleChoice =
-class MultipleChoice extends exports.Stimulus
+class MultipleChoice extends Stimulus
   constructor: (spec={}) ->
     super(spec, { question: "What is your name?", options: ["Bill", "John", "Fred"], x: 10, y: 10, fill: "black", fontSize: 24, fontFamily: "Arial", textAlign: "center", position: null})
 
@@ -1000,10 +1081,12 @@ class KineticContext extends Psy.ExperimentContext
 
     $("#container").attr("tabindex", 0)
     $("#container").css("outline", "none")
+    $("#container").css("padding", "5px")
 
 
   clearHtml: ->
     $("#htmlcontainer").empty()
+    $("#htmlcontainer").hide()
 
   appendHtml: (input) ->
     $("#htmlcontainer").addClass("htmllayer")
@@ -1027,8 +1110,8 @@ class KineticContext extends Psy.ExperimentContext
     @backgroundLayer.removeChildren()
 
   clearContent: (draw=false) ->
-    @hideHtml()
-    #@clearHtml()
+    #@hideHtml()
+    @clearHtml()
     @contentLayer.removeChildren()
     if draw
       @draw()
@@ -1100,8 +1183,6 @@ class KineticStimFactory extends Psy.StimFactory
     switch name
       when "FixationCross" then new FixationCross(params)
       when "Clear" then new Clear(params)
-      when "Rectangle" then new Rectangle(params)
-      when "Text" then new Text(params)
       when "Group"
         names = _.map(params.stims, (stim) -> _.keys(stim)[0])
         props = _.map(params.stims, (stim) -> _.values(stim)[0])
@@ -1112,6 +1193,12 @@ class KineticStimFactory extends Psy.StimFactory
         layoutParams = _.values(params.layout)[0]
 
         new Group(stims, @makeLayout(layoutName, layoutParams, context))
+
+      when "Instructions" then new Instructions(params)
+      when "Rectangle" then new Rectangle(params)
+      when "Text" then new Text(params)
+      when "HtmlIcon" then new HtmlIcon(params)
+
       else throw "No Stimulus type of name #{name}"
 
   makeResponse: (name, params, context) ->

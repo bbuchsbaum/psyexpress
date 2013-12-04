@@ -61,8 +61,6 @@ rep = (vec, times) ->
     times = [times]
 
   if (times.length != 1 and vec.length != times.length)
-    console.log("vec", vec)
-    console.log("times", times)
     throw "vec.length must equal times.length or times.length must be 1"
   if vec.length == times.length
     out = for el, i in vec
@@ -480,33 +478,59 @@ exports.MockStimFactory =
       [stim, response]
 
 
-exports.RunnableNode =
-  class RunnableNode
 
-    @functionList: (nodes, context, callback) ->
-      _.map(nodes, (node) => (=>
-        callback(node) if callback?
-        node.start(context)
-      ))
+class RunnableNode
+
+  constructor: (@children) ->
+
+  @functionList: (nodes, context, callback) ->
+    ## for every runnable node, create a function that returns a promise via 'node.start'
+    _.map(nodes, (node) => (=>
+      callback(node) if callback?
+      node.start(context)
+    ))
 
 
-    @chainFunctions: (funArray) ->
-      result = Q.resolve(0)
+  @before: (context) ->
+    -> 0
+  @after: (context) ->
+    -> 0
 
-      for fun in funArray
-        result = result.then(fun,
-        (err) ->
-          throw new Error("Error during execution: ", err)
-        )
-      result
 
-    start: (context) ->
 
-    stop: (context) ->
+  @chainFunctions: (funArray) ->
+    ## start with a dummy promise
+    result = Q.resolve(0)
+
+    ## sequentially chain the promise-producing functions in an array 'funArray'
+    ## 'result' is the promise chain.
+    for fun in funArray
+      result = result.then(fun,
+      (err) ->
+        throw new Error("Error during execution: ", err)
+      )
+    result
+
+  numChildren: -> @children.length
+
+  length: -> @children.length
+
+  start: (context) ->
+    farray = RunnableNode.functionList(@children, context,
+    (node) ->
+      console.log("callback", node)
+    )
+
+    RunnableNode.chainFunctions(_.flatten([@before(context), farray, @after(context)]))
+
+
+  stop: (context) ->
+
+exports.RunnableNode = RunnableNode
 
 
 exports.Event =
-  class Event extends exports.RunnableNode
+  class Event extends RunnableNode
 
     constructor: (@stimulus, @response) ->
 
@@ -544,57 +568,67 @@ exports.Event =
 
 
 exports.Trial =
-  class Trial extends exports.RunnableNode
-    constructor: (@events = [], @meta={}, @feedback, @background) ->
+  class Trial extends RunnableNode
+    constructor: (events = [], @meta={}, @feedback, @background) ->
+      super(events)
 
     numEvents: ->
-      @events.length
+      @children.length
 
-    push: (event) -> @events.push(event)
+    push: (event) -> @children.push(event)
 
-    start: (context) ->
-      context.clearBackground()
+    before: (context) ->
+      =>
+        context.clearBackground()
 
-      if @background
-        context.setBackground(@background)
-        context.drawBackground()
+        if @background?
+          context.setBackground(@background)
+          context.drawBackground()
 
 
-      farray = RunnableNode.functionList(@events, context,
-        (event) ->
-          console.log("event callback", event)
-      )
-      result = RunnableNode.chainFunctions(farray)
-
-      if @feedback?
-        result = result.then( (x) =>
+    after: (context) ->
+      ## return a function that executes feedback operation
+      =>
+        if @feedback?
           spec = @feedback(context.eventData)
           event = context.stimFactory.buildEvent(spec, context)
           event.start(context)
-        ,
-          (err) ->
-            throw new Error("Error during Feedback execution: ", err)
-        )
+        else
+          Q.fcall(0)
 
-      result
+
+    start: (context) ->
+
+      farray = RunnableNode.functionList(@children, context,
+        (event) ->
+          console.log("event callback", event)
+      )
+
+      RunnableNode.chainFunctions(_.flatten([@before(context), farray, @after(context)]))
 
 
     stop: (context) -> #ev.stop(context) for ev in @events
 
 
 exports.Block =
-  class Block extends exports.RunnableNode
-    constructor: (@trials) ->
+  class Block extends RunnableNode
+    constructor: (children, @blockEventBuilder) -> super(children)
 
-    start: (context) ->
-      farray = RunnableNode.functionList(@trials, context,
-        (trial) ->
-          console.log("trial callback", trial)
-      )
+    before: (context) ->
 
-      RunnableNode.chainFunctions(farray)
 
-    stop: (context) -> #trial.stop(context) for trial in @trials
+    after: (context) ->
+
+
+exports.Prelude =
+  class Prelude extends RunnableNode
+    constructor: (children) -> super(children)
+
+exports.BlockSeq =
+  class BlockSeq extends RunnableNode
+    constructor: (children) -> super(children)
+
+
 
 
 #exports.ExperimentState =
@@ -668,16 +702,27 @@ buildStimulus = (spec, context) ->
 buildResponse =  (spec, context) ->
   responseType = _.keys(spec)[0]
   params = _.values(spec)[0]
-  context.makeResponse(responseType, params, context)
+  context.stimFactory.makeResponse(responseType, params, context)
 
 buildEvent = (spec, context) ->
-  stimSpec = _.omit(value, "Next")
-  responseSpec = _.pick(value, "Next")
-  stim = buildStimulus(stimSpec, context)
-  response = buildResponse(responseSpec, context)
-  context.stimFactory.makeEvent(stim, response, context)
+  stimSpec = _.omit(spec, "Next")
+  responseSpec = _.pick(spec, "Next")
 
-buildTrial = (eventSpec, record, context, feedback, background=new Psy.Background([],  "white")) ->
+  console.log("stim Spec", stimSpec)
+  console.log("response Spec",responseSpec)
+
+  if not responseSpec? or _.isEmpty(responseSpec)
+    console.log("keys of stimspec", _.keys(stimSpec))
+    ## in the absence of a 'Next' element, assume stimulus is it's own response
+    stim = buildStimulus(stimSpec, context)
+    console.log("stim is", stim)
+    context.stimFactory.makeEvent(stim, stim, context)
+  else
+    response = buildResponse(responseSpec, context)
+    context.stimFactory.makeEvent(stim, response, context)
+
+
+buildTrial = (eventSpec, record, context, feedback, background) ->
   events = for key, value of eventSpec
     stimSpec = _.omit(value, "Next")
     responseSpec = _.pick(value, "Next")
@@ -689,34 +734,43 @@ buildTrial = (eventSpec, record, context, feedback, background=new Psy.Backgroun
   new Trial(events, record, feedback, background)
 
 
+buildPrelude = (preludeSpec, context) ->
+  console.log("building prelude")
+  events = for key, value of preludeSpec
+    spec = {}
+    spec[key] = value
+    console.log("prelude spec", spec)
+    buildEvent(spec, context)
+  console.log("prelude events", events)
+  new Prelude(events)
+
 
 exports.Presenter =
 class Presenter
-  constructor: (@trialList, @display, @stimFactory = new MockStimFactory()) ->
+  constructor: (@trialList, @display, @context) ->
     @trialBuilder = @display.Trial
 
-    if @display.Prelude?
-      #@instructions = @stimFactory.makeInstructions(@display.Prelude)
-      ""
+    @prelude = if @display.Prelude?
+      buildPrelude(@display.Prelude, @context)
+    else
+      new Prelude([])
 
-  start: (context) ->
+    @blockEventBuilder = @display.Block
 
-    @blockList = for block in @trialList.blocks
+    console.log("prelude is", @prelude)
+
+  start: () ->
+
+    @blockList = new BlockSeq(for block in @trialList.blocks
       new Block(for trialNum in [0...block.length]
         record = _.clone(block[trialNum])
         record.$trialNumber = trialNum
         trialSpec = @trialBuilder(record)
-        buildTrial(trialSpec.Events, record, context, trialSpec.Feedback)
+        buildTrial(trialSpec.Events, record, @context, trialSpec.Feedback)
       )
+    )
 
-    if @instructions?
-      instructionsEvent = @stimFactory.makeEvent(@instructions,@instructions, context)
-      context.showEvent(instructionsEvent).then(=>
-        context.start(@blockList)
-      )
-
-    else
-      context.start(@blockList)
+    @prelude.start(@context).then(=> @blockList.start(@context))
 
 
 # Experiment
@@ -1233,6 +1287,7 @@ exports.buildStimulus = buildStimulus
 exports.buildResponse = buildResponse
 exports.buildEvent = buildEvent
 exports.buildTrial = buildTrial
+exports.buildPrelude = buildPrelude
 
 
 

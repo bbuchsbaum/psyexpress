@@ -34,7 +34,7 @@
     new Psy.Trial([new Psy.Event(resp, resp), ClearEvent], {}, bg)
 
 @wrapEvents = (events, bg=new Psy.Background([], "white")) ->
-  => new Psy.Trial(events.concat(ClearEvent), {}, bg)
+  => new Psy.Trial(events.concat(ClearEvent), {}, null, bg)
 
 
 
@@ -110,11 +110,11 @@
       SpaceKey)
 
   Markdown:
-    "Basic Example": makeTrial(new Psy.Markdown('''
+    "Basic Example": makeTrial(new Psy.Markdown("""
 
-    A First Level Header
+    A First Level Header Today tttt
     ===================
-    A Second Level Header
+    A Second Level Header Tday tttt
     ---------------------
     ### Header 3
 
@@ -135,10 +135,14 @@
     ![alt text](http://www.html5canvastutorials.com/demos/assets/yoda.jpg "Title")
 
 
-    '''), SpaceKey)
+    """), SpaceKey)
 
     "An External URL": makeTrial(new Psy.Markdown({url: "/tasks/Capabilities/resources/page-1.md"}), SpaceKey)
 
+
+  HtmlIcon:
+    Default: makeTrial(new Psy.HtmlIcon(), SpaceOrTimeout5000)
+    PercentagePositioning: makeTrial(new Psy.HtmlIcon({label: "[50%,50%]", x: "40%", y: "40%"}), SpaceOrTimeout5000)
 
   HtmlLink:
     Default: makeTrial(new Psy.HtmlLink(), SpaceOrTimeout5000)
@@ -148,7 +152,13 @@
   HtmlButton:
     Default: makeTrial(new Psy.HtmlButton(), SpaceOrTimeout5000)
     PercentagePositioning: makeTrial(new Psy.HtmlButton({label: "[80%,80%]", x: "80%", y: "80%"}), SpaceOrTimeout5000)
-    CircularButton: makeTrial(new Psy.HtmlButton({label: "[50%,50%]", x: "80%", y: "80%", class: "circular"}), SpaceOrTimeout5000)
+    CircularButton: makeTrial(new Psy.HtmlButton({label: "[50%,50%]", x: "50%", y: "50%", class: "circular"}), SpaceOrTimeout5000)
+    "Button over Crosshair": makeTrial(new Psy.Group([
+      new Psy.HtmlButton({label: "[50%,50%]", x: "50%", y: "50%", class: "circular huge"}),
+      new Psy.FixationCross()
+    ]), SpaceKey)
+
+
   Blank:
     "Black Background": makeTrial(new Psy.Blank({fill: "black"}), SpaceOrTimeout5000)
     "Green Background": makeTrial(new Psy.Blank({fill: "green"}), SpaceOrTimeout5000)
@@ -201,12 +211,64 @@
   MultipleChoice:
     "Default MChoice": makeTrial(new Psy.MultipleChoice(), SpaceKey)
 
+  Page:
+    "Test Html": makeTrial(new Psy.Page(), SpaceKey)
+    Message: makeTrial(new Psy.Page(
+      html:
+        """
+      <div class="ui message">
+        <div class="header">
+          Welcome back!
+        </div>
+        <p>
+          It's good to see you again. I have had a lot to think about since our last visit, I've changed much as a person and I can see that you have too.
+        </p>
+        <p>
+        Perhaps we can talk about it if you have the time.
+        </p>
+      </div>
+      <div class="ui icon message">
+        <i class="inbox icon"></i>
+        <div class="content">
+        <div class="header">
+          Have you heard about our mailing list?
+        </div>
+        <p>Get all the best inventions in your e-mail every day. Sign up now!</p>
+        </div>
+      </div>
+      """
+    ), SpaceKey)
+
+  Message:
+    "Default": makeTrial(new Psy.Message(), SpaceKey)
+    "Basic Message in Red": makeTrial(new Psy.Message({
+      title: "This is a massive message in red"
+      content: """
+        Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
+        Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure
+        dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non
+        proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+      """
+      color: "red"
+      size: "massive"
+    }), SpaceKey)
+    "Multiple Messages": makeTrial(new Psy.Group(
+      [new Psy.Message({ title: "message 1", content: "This is Message 1", color: "blue"}),
+       new Psy.Message({ title: "message 2", content: "This is Message 2", color: "red"}),
+       new Psy.Message({ title: "message 3", content: "This is Message 3", color: "green"})
+      ]), SpaceKey)
+
+    "Message and Canvas Rect": makeTrial(new Psy.Group(
+      [new Psy.Message({ title: "message 1", content: "This is Message 1", color: "blue"}),
+      new Psy.FixationCross()]), SpaceKey)
+
+
   Instructions:
     "Simple Test": makeResponseTrial(new Psy.Instructions(
       pages:
-        1: "Hello"
-        2: "Goodbye"
-        3: "Dolly"
+        1: Markdown: "Hello"
+        2: Markdown: "Goodbye"
+        3: Markdown: "Dolly"
     ))
 
 
@@ -300,7 +362,7 @@ window.updateTests = (name) ->
       @activeTrial.stop()
     @activeTrial = trial()
 
-
+    context.clearContent()
     @activeTrial.start(context)
 
 

@@ -95,7 +95,6 @@ test 'can build a TrialList', ->
   tlist.add(5,{wordtype: "word", lag: 2, repnum: 3})
 
   equal(tlist.ntrials(), 5)
-  console.log("TLIST", tlist.get(0,2))
 
 
 module("ItemNode")
@@ -131,6 +130,34 @@ test 'AbsoluteLayout handles raw pixels', ->
   equal(xy[1], 90)
 
 
+module("Prelude")
+test 'Can create a Prelude Block froma spec', ->
+  prelude = Prelude:
+    Instructions:
+      pages:
+        1:
+          MarkDown: """
+            Welcome to the Experiment!
+            ==========================
+          """
+        2:
+          Markdown: """
+            Awesome!!!
+            =========================
+          """
+  context = new Psy.ExperimentContext(new Psy.MockStimFactory())
+  events = for key, value of prelude.Prelude
+      console.log("key", key)
+      console.log("value", value)
+      ev = Psy.buildEvent(value, context)
+      console.log("event", ev)
+      ev
+  block = new Psy.Block(events)
+  console.log("block", block)
+  ok(block)
+  equal(block.length(), 1, block.length())
+
+
 
 module("Instructions")
 test 'Can create an Instructions element', ->
@@ -147,6 +174,9 @@ test 'Can create an Instructions element', ->
             Awesome!!!
             =========================
           """
+
+  instructions = new Psy.Instructions(prelude.Prelude.Instructions)
+  equal(instructions.pages.length, 2)
 
 
 

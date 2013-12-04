@@ -64,7 +64,7 @@
       bg = new Psy.Background([], "white");
     }
     return function() {
-      return new Psy.Trial(events.concat(ClearEvent), {}, bg);
+      return new Psy.Trial(events.concat(ClearEvent), {}, null, bg);
     };
   };
 
@@ -190,10 +190,18 @@
       }), SpaceKey)
     },
     Markdown: {
-      "Basic Example": makeTrial(new Psy.Markdown('\nA First Level Header\n===================\nA Second Level Header\n---------------------\n### Header 3\n\n\nNow is the time for all good men to come to\nthe aid of their country. This is just a\nregular paragraph.\n\nThe quick brown fox jumped over the lazy\ndog\'s back.\n\n> This is a blockquote.\n>\n> This is the second paragraph in the blockquote.\n>\n> ## This is an H2 in a blockquote\n\n![alt text](http://www.html5canvastutorials.com/demos/assets/yoda.jpg "Title")\n\n'), SpaceKey),
+      "Basic Example": makeTrial(new Psy.Markdown("\nA First Level Header Today tttt\n===================\nA Second Level Header Tday tttt\n---------------------\n### Header 3\n\n\nNow is the time for all good men to come to\nthe aid of their country. This is just a\nregular paragraph.\n\nThe quick brown fox jumped over the lazy\ndog's back.\n\n> This is a blockquote.\n>\n> This is the second paragraph in the blockquote.\n>\n> ## This is an H2 in a blockquote\n\n![alt text](http://www.html5canvastutorials.com/demos/assets/yoda.jpg \"Title\")\n\n"), SpaceKey),
       "An External URL": makeTrial(new Psy.Markdown({
         url: "/tasks/Capabilities/resources/page-1.md"
       }), SpaceKey)
+    },
+    HtmlIcon: {
+      Default: makeTrial(new Psy.HtmlIcon(), SpaceOrTimeout5000),
+      PercentagePositioning: makeTrial(new Psy.HtmlIcon({
+        label: "[50%,50%]",
+        x: "40%",
+        y: "40%"
+      }), SpaceOrTimeout5000)
     },
     HtmlLink: {
       Default: makeTrial(new Psy.HtmlLink(), SpaceOrTimeout5000),
@@ -217,10 +225,18 @@
       }), SpaceOrTimeout5000),
       CircularButton: makeTrial(new Psy.HtmlButton({
         label: "[50%,50%]",
-        x: "80%",
-        y: "80%",
+        x: "50%",
+        y: "50%",
         "class": "circular"
-      }), SpaceOrTimeout5000)
+      }), SpaceOrTimeout5000),
+      "Button over Crosshair": makeTrial(new Psy.Group([
+        new Psy.HtmlButton({
+          label: "[50%,50%]",
+          x: "50%",
+          y: "50%",
+          "class": "circular huge"
+        }), new Psy.FixationCross()
+      ]), SpaceKey)
     },
     Blank: {
       "Black Background": makeTrial(new Psy.Blank({
@@ -359,12 +375,55 @@
     MultipleChoice: {
       "Default MChoice": makeTrial(new Psy.MultipleChoice(), SpaceKey)
     },
+    Page: {
+      "Test Html": makeTrial(new Psy.Page(), SpaceKey),
+      Message: makeTrial(new Psy.Page({
+        html: "<div class=\"ui message\">\n  <div class=\"header\">\n    Welcome back!\n  </div>\n  <p>\n    It's good to see you again. I have had a lot to think about since our last visit, I've changed much as a person and I can see that you have too.\n  </p>\n  <p>\n  Perhaps we can talk about it if you have the time.\n  </p>\n</div>\n<div class=\"ui icon message\">\n  <i class=\"inbox icon\"></i>\n  <div class=\"content\">\n  <div class=\"header\">\n    Have you heard about our mailing list?\n  </div>\n  <p>Get all the best inventions in your e-mail every day. Sign up now!</p>\n  </div>\n</div>"
+      }), SpaceKey)
+    },
+    Message: {
+      "Default": makeTrial(new Psy.Message(), SpaceKey),
+      "Basic Message in Red": makeTrial(new Psy.Message({
+        title: "This is a massive message in red",
+        content: "Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.\nUt enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure\ndolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non\nproident, sunt in culpa qui officia deserunt mollit anim id est laborum.",
+        color: "red",
+        size: "massive"
+      }), SpaceKey),
+      "Multiple Messages": makeTrial(new Psy.Group([
+        new Psy.Message({
+          title: "message 1",
+          content: "This is Message 1",
+          color: "blue"
+        }), new Psy.Message({
+          title: "message 2",
+          content: "This is Message 2",
+          color: "red"
+        }), new Psy.Message({
+          title: "message 3",
+          content: "This is Message 3",
+          color: "green"
+        })
+      ]), SpaceKey),
+      "Message and Canvas Rect": makeTrial(new Psy.Group([
+        new Psy.Message({
+          title: "message 1",
+          content: "This is Message 1",
+          color: "blue"
+        }), new Psy.FixationCross()
+      ]), SpaceKey)
+    },
     Instructions: {
       "Simple Test": makeResponseTrial(new Psy.Instructions({
         pages: {
-          1: "Hello",
-          2: "Goodbye",
-          3: "Dolly"
+          1: {
+            Markdown: "Hello"
+          },
+          2: {
+            Markdown: "Goodbye"
+          },
+          3: {
+            Markdown: "Dolly"
+          }
         }
       }))
     },
@@ -589,6 +648,7 @@
         this.activeTrial.stop();
       }
       this.activeTrial = trial();
+      context.clearContent();
       return this.activeTrial.start(context);
     });
   };

@@ -172,8 +172,7 @@
       lag: 2,
       repnum: 3
     });
-    equal(tlist.ntrials(), 5);
-    return console.log("TLIST", tlist.get(0, 2));
+    return equal(tlist.ntrials(), 5);
   });
 
   module("ItemNode");
@@ -212,11 +211,11 @@
     return equal(xy[1], 90);
   });
 
-  module("Instructions");
+  module("Prelude");
 
-  test('Can create an Instructions element', function() {
-    var prelude;
-    return prelude = {
+  test('Can create a Prelude Block froma spec', function() {
+    var block, context, ev, events, key, prelude, value;
+    prelude = {
       Prelude: {
         Instructions: {
           pages: {
@@ -230,6 +229,47 @@
         }
       }
     };
+    context = new Psy.ExperimentContext(new Psy.MockStimFactory());
+    events = (function() {
+      var _ref, _results;
+      _ref = prelude.Prelude;
+      _results = [];
+      for (key in _ref) {
+        value = _ref[key];
+        console.log("key", key);
+        console.log("value", value);
+        ev = Psy.buildEvent(value, context);
+        console.log("event", ev);
+        _results.push(ev);
+      }
+      return _results;
+    })();
+    block = new Psy.Block(events);
+    console.log("block", block);
+    ok(block);
+    return equal(block.length(), 1, block.length());
+  });
+
+  module("Instructions");
+
+  test('Can create an Instructions element', function() {
+    var instructions, prelude;
+    prelude = {
+      Prelude: {
+        Instructions: {
+          pages: {
+            1: {
+              MarkDown: "Welcome to the Experiment!\n=========================="
+            },
+            2: {
+              Markdown: "Awesome!!!\n========================="
+            }
+          }
+        }
+      }
+    };
+    instructions = new Psy.Instructions(prelude.Prelude.Instructions);
+    return equal(instructions.pages.length, 2);
   });
 
 }).call(this);
