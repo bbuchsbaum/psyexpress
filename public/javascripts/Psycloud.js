@@ -51,10 +51,12 @@
       };
     }();
   require.define('/main.coffee', function (module, exports, __dirname, __filename) {
-    var Dots, Exp, key, key, key, Psy, value, value, value;
+    var _, Dots, Exp, key, key, key, Psy, Q, value, value, value;
     Exp = require('/Elements.js', module);
     Psy = require('/PsyCloud.js', module);
     Dots = require('/DotMotion.js', module);
+    _ = require('/../node_modules/lodash/dist/lodash.js', module);
+    Q = require('/../node_modules/q/q.js', module);
     for (key in Psy) {
       value = Psy[key];
       exports[key] = value;
@@ -67,6 +69,8 @@
       value = Dots[key];
       exports[key] = value;
     }
+    exports.Q = Q;
+    exports._ = _;
   });
   require.define('/PsyCloud.js', function (module, exports, __dirname, __filename) {
     (function () {
@@ -734,7 +738,7 @@
                 continue;
               value = record[key];
               if (!_.has(this, key)) {
-                throw 'DataTable has no field named ' + key;
+                throw new Error('DataTable has no field named ' + key);
               } else {
                 this[key].push(value);
               }
@@ -819,12 +823,12 @@
             };
           });
         };
-        RunnableNode.before = function (context) {
+        RunnableNode.prototype.before = function (context) {
           return function () {
             return 0;
           };
         };
-        RunnableNode.after = function (context) {
+        RunnableNode.prototype.after = function (context) {
           return function () {
             return 0;
           };
@@ -945,13 +949,40 @@
       }(RunnableNode);
       exports.Block = Block = function (_super) {
         __extends(Block, _super);
-        function Block(children, blockEventBuilder) {
-          this.blockEventBuilder = blockEventBuilder;
+        function Block(children, blockSpec) {
+          this.blockSpec = blockSpec;
           Block.__super__.constructor.call(this, children);
         }
+        Block.prototype.showEvent = function (spec, context) {
+          var event;
+          event = buildEvent(spec, context);
+          return event.start(context);
+        };
         Block.prototype.before = function (context) {
+          var _this = this;
+          return function () {
+            var spec;
+            console.log('before Block function');
+            if (_this.blockSpec != null && _this.blockSpec.Start) {
+              spec = _this.blockSpec.Start(context);
+              return _this.showEvent(spec, context);
+            } else {
+              return Q.fcall(0);
+            }
+          };
         };
         Block.prototype.after = function (context) {
+          var _this = this;
+          return function () {
+            var spec;
+            console.log('after Block function');
+            if (_this.blockSpec != null && _this.blockSpec.End) {
+              spec = _this.blockSpec.End(context);
+              return _this.showEvent(spec, context);
+            } else {
+              return Q.fcall(0);
+            }
+          };
         };
         return Block;
       }(RunnableNode);
@@ -1025,7 +1056,9 @@
       buildResponse = function (spec, context) {
         var params, responseType;
         responseType = _.keys(spec)[0];
+        console.log('response type', responseType);
         params = _.values(spec)[0];
+        console.log('params', params);
         return context.stimFactory.makeResponse(responseType, params, context);
       };
       buildEvent = function (spec, context) {
@@ -1040,7 +1073,10 @@
           console.log('stim is', stim);
           return context.stimFactory.makeEvent(stim, stim, context);
         } else {
-          response = buildResponse(responseSpec, context);
+          stim = buildStimulus(stimSpec, context);
+          console.log('stim', stim);
+          response = buildResponse(responseSpec.Next, context);
+          console.log('response', response);
           return context.stimFactory.makeEvent(stim, response, context);
         }
       };
@@ -1086,18 +1122,17 @@
           this.context = context;
           this.trialBuilder = this.display.Trial;
           this.prelude = this.display.Prelude != null ? buildPrelude(this.display.Prelude, this.context) : new Prelude([]);
-          this.blockEventBuilder = this.display.Block;
           console.log('prelude is', this.prelude);
         }
         Presenter.prototype.start = function () {
-          var block, record, trialNum, trialSpec, _this = this;
+          var block, record, trialNum, trialSpec, trials, _this = this;
           this.blockList = new BlockSeq(function () {
             var _j, _len, _ref1, _results1;
             _ref1 = this.trialList.blocks;
             _results1 = [];
             for (_j = 0, _len = _ref1.length; _j < _len; _j++) {
               block = _ref1[_j];
-              _results1.push(new Block(function () {
+              trials = function () {
                 var _k, _ref2, _results2;
                 _results2 = [];
                 for (trialNum = _k = 0, _ref2 = block.length; 0 <= _ref2 ? _k < _ref2 : _k > _ref2; trialNum = 0 <= _ref2 ? ++_k : --_k) {
@@ -1107,7 +1142,8 @@
                   _results2.push(buildTrial(trialSpec.Events, record, this.context, trialSpec.Feedback));
                 }
                 return _results2;
-              }.call(this)));
+              }.call(this);
+              _results1.push(new Block(trials, this.display.Block));
             }
             return _results1;
           }.call(this));
@@ -4492,7 +4528,7 @@
   });
   require.define('/Elements.js', function (module, exports, __dirname, __filename) {
     (function () {
-      var AbsoluteLayout, Arrow, Background, Bacon, Blank, CanvasBorder, Circle, Clear, ClickResponse, Confirm, FirstResponse, FixationCross, GridLayout, GridLines, Group, HtmlButton, HtmlIcon, HtmlLink, Instructions, KeyPressResponse, KineticContext, KineticStimFactory, Layout, Markdown, Message, MousePressResponse, MultipleChoice, Page, Paragraph, Picture, Prompt, Psy, Q, Rectangle, Response, Sequence, Sound, SpaceKeyResponse, StartButton, Stimulus, Text, TextInput, Timeout, TypedResponse, computeGridCells, convertPercentageToFraction, convertToCoordinate, disableBrowserBack, doTimer, elog, getTimestamp, input, isPercentage, li, markdown, position, renderable, tmp1, tmp2, tmp3, ul, _, _ref, _ref1, _ref2, _ref3, _ref4, __hasProp = {}.hasOwnProperty, __extends = function (child, parent) {
+      var AbsoluteLayout, Arrow, Background, Bacon, Blank, CanvasBorder, Circle, Clear, ClickResponse, Confirm, FirstResponse, FixationCross, GridLayout, GridLines, Group, HtmlButton, HtmlIcon, HtmlLink, HtmlStimulus, Instructions, KeyPressResponse, KineticContext, KineticStimFactory, Layout, Markdown, Message, MousePressResponse, MultipleChoice, Page, Paragraph, Picture, Prompt, Psy, Q, Rectangle, Response, Sequence, Sound, SpaceKeyResponse, StartButton, Stimulus, Text, TextInput, Timeout, TypedResponse, computeGridCells, convertPercentageToFraction, convertToCoordinate, disableBrowserBack, doTimer, elog, getTimestamp, input, isPercentage, li, markdown, position, renderable, tmp1, tmp2, tmp3, ul, _, _ref, _ref1, _ref2, _ref3, _ref4, __hasProp = {}.hasOwnProperty, __extends = function (child, parent) {
           for (var key in parent) {
             if (__hasProp.call(parent, key))
               child[key] = parent[key];
@@ -5575,42 +5611,42 @@
             offx + width * .5,
             offy + height * .5
           ];
-        case 'center-left':
+        case 'center-left' || 'left-center':
           return [
             offx + width * 1 / 6,
             offy + height * .5
           ];
-        case 'center-right':
+        case 'center-right' || 'right-center':
           return [
             offx + width * 5 / 6,
             offy + height * .5
           ];
-        case 'top-left':
+        case 'top-left' || 'left-top':
           return [
             offx + width * 1 / 6,
             offy + height * 1 / 6
           ];
-        case 'top-right':
+        case 'top-right' || 'right-top':
           return [
             offx + width * 5 / 6,
             offy + height * 1 / 6
           ];
-        case 'top-center':
+        case 'top-center' || 'center-top':
           return [
             offx + width * .5,
             offy + height * 1 / 6
           ];
-        case 'bottom-left':
+        case 'bottom-left' || 'left-bottom':
           return [
             offx + width * 1 / 6,
             offy + height * 5 / 6
           ];
-        case 'bottom-right':
+        case 'bottom-right' || 'right-bottom':
           return [
             offx + width * 5 / 6,
             offy + height * 5 / 6
           ];
-        case 'bottom-center':
+        case 'bottom-center' || 'center-bottom':
           return [
             offx + width * .5,
             offy + height * 5 / 6
@@ -5631,12 +5667,15 @@
             y: 5,
             width: null,
             fill: 'black',
-            fontSize: 50,
+            fontSize: 40,
             fontFamily: 'Arial',
-            lineHeight: 1,
+            lineHeight: 2,
             textAlign: 'center',
             position: null
           });
+          if (_.isArray(this.spec.content)) {
+            this.spec.content = this.spec.content.join('\n');
+          }
         }
         Text.prototype.render = function (context, layer) {
           var text, xy;
@@ -5647,7 +5686,10 @@
             fontSize: this.spec.fontSize,
             fontFamily: this.spec.fontFamily,
             fill: this.spec.fill,
-            listening: false
+            lineHeight: this.spec.lineHeight,
+            width: this.spec.width || context.width(),
+            listening: false,
+            align: this.spec.textAlign
           });
           if (this.spec.position) {
             xy = position(this.spec.position, -text.getWidth() / 2, -text.getHeight() / 2, context.width(), context.height(), [
@@ -5839,6 +5881,36 @@
         };
         return Instructions;
       }(Response);
+      exports.HtmlStimulus = HtmlStimulus = function (_super) {
+        __extends(HtmlStimulus, _super);
+        function HtmlStimulus(spec, defargs) {
+          if (spec == null) {
+            spec = {};
+          }
+          if (defargs == null) {
+            defargs = {};
+          }
+          HtmlStimulus.__super__.constructor.call(this, spec, defargs);
+        }
+        HtmlStimulus.prototype.positionElement = function (element) {
+          if (this.spec.x != null && this.spec.y != null) {
+            return element.css({
+              position: 'absolute',
+              left: this.spec.x,
+              top: this.spec.y
+            });
+          }
+        };
+        HtmlStimulus.prototype.centerElement = function (element) {
+          return element.css({
+            margin: '0 auto',
+            position: 'absolute',
+            left: '50%',
+            top: '50%'
+          });
+        };
+        return HtmlStimulus;
+      }(Stimulus);
       exports.HtmlIcon = HtmlIcon = function (_super) {
         __extends(HtmlIcon, _super);
         function HtmlIcon(spec) {
@@ -5851,13 +5923,7 @@
           });
           this.html = $('<i></i>');
           this.html.addClass(this.spec.glyph + ' ' + this.spec.size + ' icon');
-          if (this.spec.x != null && this.spec.y != null) {
-            this.html.css({
-              position: 'absolute',
-              left: this.spec.x,
-              top: this.spec.y
-            });
-          }
+          this.positionElement(this.html);
         }
         HtmlIcon.prototype.render = function (context, layer) {
           context.appendHtml(this.html);
@@ -5865,7 +5931,7 @@
           return console.log('height of icon is', $(this.html).height());
         };
         return HtmlIcon;
-      }(Stimulus);
+      }(HtmlStimulus);
       exports.HtmlLink = HtmlLink = function (_super) {
         __extends(HtmlLink, _super);
         function HtmlLink(spec) {
@@ -6136,13 +6202,16 @@
           }
         };
         KineticStimFactory.prototype.makeResponse = function (name, params, context) {
+          console.log('making response', name);
           switch (name) {
           case 'KeyPress':
             return new KeyPressResponse(params);
+          case 'SpaceKey':
+            return new SpaceKeyResponse(params);
           case 'Timeout':
             return new Timeout(params);
           default:
-            throw 'No Response type of name ' + name;
+            throw new Error('No Response type of name ' + name);
           }
         };
         KineticStimFactory.prototype.makeEvent = function (stim, response) {

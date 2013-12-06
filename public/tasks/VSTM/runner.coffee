@@ -51,18 +51,20 @@ window.display =
           """
 
 
-    Block: (context) ->
-      Start:
+    Block:
+      Start: (context) ->
         Text:
-          content: "Starting Block. Press 'Enter' to Continue"
+          position: "center"
+          content: ["Get Ready!", "Press Space Bar to start"]
         Next:
-          keys: ['ENTER']
+          SpaceKey: ""
 
-      End:
+      End: (context) ->
         Text:
-          content: "End of Block. Press Enter to continue to Next Block"
+          position: "center"
+          content: ["End of Block", "Press Space Bar to continue to next block"]
         Next:
-          keys: ['ENTER']
+          SpaceKey: ""
 
     Trial: (trial) =>
 
@@ -100,7 +102,7 @@ window.display =
             Timeout:
               duration: 1500
         3:
-          Clear: null
+          Clear: 0
 
           Next:
             Timeout:

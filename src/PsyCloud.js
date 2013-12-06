@@ -720,7 +720,7 @@
           if (!__hasProp.call(record, key)) continue;
           value = record[key];
           if (!_.has(this, key)) {
-            throw "DataTable has no field named " + key;
+            throw new Error("DataTable has no field named " + key);
           } else {
             this[key].push(value);
           }
@@ -822,13 +822,13 @@
       });
     };
 
-    RunnableNode.before = function(context) {
+    RunnableNode.prototype.before = function(context) {
       return function() {
         return 0;
       };
     };
 
-    RunnableNode.after = function(context) {
+    RunnableNode.prototype.after = function(context) {
       return function() {
         return 0;
       };
@@ -965,14 +965,44 @@
   exports.Block = Block = (function(_super) {
     __extends(Block, _super);
 
-    function Block(children, blockEventBuilder) {
-      this.blockEventBuilder = blockEventBuilder;
+    function Block(children, blockSpec) {
+      this.blockSpec = blockSpec;
       Block.__super__.constructor.call(this, children);
     }
 
-    Block.prototype.before = function(context) {};
+    Block.prototype.showEvent = function(spec, context) {
+      var event;
+      event = buildEvent(spec, context);
+      return event.start(context);
+    };
 
-    Block.prototype.after = function(context) {};
+    Block.prototype.before = function(context) {
+      var _this = this;
+      return function() {
+        var spec;
+        console.log("before Block function");
+        if ((_this.blockSpec != null) && _this.blockSpec.Start) {
+          spec = _this.blockSpec.Start(context);
+          return _this.showEvent(spec, context);
+        } else {
+          return Q.fcall(0);
+        }
+      };
+    };
+
+    Block.prototype.after = function(context) {
+      var _this = this;
+      return function() {
+        var spec;
+        console.log("after Block function");
+        if ((_this.blockSpec != null) && _this.blockSpec.End) {
+          spec = _this.blockSpec.End(context);
+          return _this.showEvent(spec, context);
+        } else {
+          return Q.fcall(0);
+        }
+      };
+    };
 
     return Block;
 
@@ -1064,7 +1094,9 @@
   buildResponse = function(spec, context) {
     var params, responseType;
     responseType = _.keys(spec)[0];
+    console.log("response type", responseType);
     params = _.values(spec)[0];
+    console.log("params", params);
     return context.stimFactory.makeResponse(responseType, params, context);
   };
 
@@ -1080,7 +1112,10 @@
       console.log("stim is", stim);
       return context.stimFactory.makeEvent(stim, stim, context);
     } else {
-      response = buildResponse(responseSpec, context);
+      stim = buildStimulus(stimSpec, context);
+      console.log("stim", stim);
+      response = buildResponse(responseSpec.Next, context);
+      console.log("response", response);
       return context.stimFactory.makeEvent(stim, response, context);
     }
   };
@@ -1129,12 +1164,11 @@
       this.context = context;
       this.trialBuilder = this.display.Trial;
       this.prelude = this.display.Prelude != null ? buildPrelude(this.display.Prelude, this.context) : new Prelude([]);
-      this.blockEventBuilder = this.display.Block;
       console.log("prelude is", this.prelude);
     }
 
     Presenter.prototype.start = function() {
-      var block, record, trialNum, trialSpec,
+      var block, record, trialNum, trialSpec, trials,
         _this = this;
       this.blockList = new BlockSeq((function() {
         var _j, _len, _ref1, _results1;
@@ -1142,7 +1176,7 @@
         _results1 = [];
         for (_j = 0, _len = _ref1.length; _j < _len; _j++) {
           block = _ref1[_j];
-          _results1.push(new Block((function() {
+          trials = (function() {
             var _k, _ref2, _results2;
             _results2 = [];
             for (trialNum = _k = 0, _ref2 = block.length; 0 <= _ref2 ? _k < _ref2 : _k > _ref2; trialNum = 0 <= _ref2 ? ++_k : --_k) {
@@ -1152,7 +1186,8 @@
               _results2.push(buildTrial(trialSpec.Events, record, this.context, trialSpec.Feedback));
             }
             return _results2;
-          }).call(this)));
+          }).call(this);
+          _results1.push(new Block(trials, this.display.Block));
         }
         return _results1;
       }).call(this));

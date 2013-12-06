@@ -90,8 +90,6 @@ sample = (elements, n, replace=false) ->
 
 
 
-
-
 exports.EventData =
 class EventData
   constructor: (@name, @id, @data) ->
@@ -423,8 +421,8 @@ exports.DataTable =
       for record in rows
         console.log(record)
         for own key, value of record
-          if (!_.has(this, key))
-            throw "DataTable has no field named #{key}"
+          if (not _.has(this, key))
+            throw new Error("DataTable has no field named #{key}")
           else
             this[key].push(value)
       this
@@ -491,11 +489,12 @@ class RunnableNode
     ))
 
 
-  @before: (context) ->
-    -> 0
-  @after: (context) ->
+  before: (context) ->
     -> 0
 
+
+  after: (context) ->
+    -> 0
 
 
   @chainFunctions: (funArray) ->
@@ -612,12 +611,33 @@ exports.Trial =
 
 exports.Block =
   class Block extends RunnableNode
-    constructor: (children, @blockEventBuilder) -> super(children)
+    constructor: (children, @blockSpec) -> super(children)
+
+
+    showEvent: (spec, context) ->
+      event = buildEvent(spec, context)
+      event.start(context)
 
     before: (context) ->
-
+      =>
+        console.log("before Block function")
+        if @blockSpec? and @blockSpec.Start
+          spec = @blockSpec.Start(context)
+          @showEvent(spec, context)
+        else
+          Q.fcall(0)
 
     after: (context) ->
+      =>
+        console.log("after Block function")
+        if @blockSpec? and @blockSpec.End
+          spec = @blockSpec.End(context)
+          @showEvent(spec, context)
+        else
+          Q.fcall(0)
+
+
+    #after: (context) ->
 
 
 exports.Prelude =
@@ -701,7 +721,9 @@ buildStimulus = (spec, context) ->
 
 buildResponse =  (spec, context) ->
   responseType = _.keys(spec)[0]
+  console.log("response type", responseType)
   params = _.values(spec)[0]
+  console.log("params", params)
   context.stimFactory.makeResponse(responseType, params, context)
 
 buildEvent = (spec, context) ->
@@ -718,7 +740,10 @@ buildEvent = (spec, context) ->
     console.log("stim is", stim)
     context.stimFactory.makeEvent(stim, stim, context)
   else
-    response = buildResponse(responseSpec, context)
+    stim = buildStimulus(stimSpec, context)
+    console.log("stim", stim)
+    response = buildResponse(responseSpec.Next, context)
+    console.log("response", response)
     context.stimFactory.makeEvent(stim, response, context)
 
 
@@ -745,6 +770,8 @@ buildPrelude = (preludeSpec, context) ->
   new Prelude(events)
 
 
+
+
 exports.Presenter =
 class Presenter
   constructor: (@trialList, @display, @context) ->
@@ -755,19 +782,19 @@ class Presenter
     else
       new Prelude([])
 
-    @blockEventBuilder = @display.Block
+
 
     console.log("prelude is", @prelude)
 
   start: () ->
 
     @blockList = new BlockSeq(for block in @trialList.blocks
-      new Block(for trialNum in [0...block.length]
+      trials = for trialNum in [0...block.length]
         record = _.clone(block[trialNum])
         record.$trialNumber = trialNum
         trialSpec = @trialBuilder(record)
         buildTrial(trialSpec.Events, record, @context, trialSpec.Feedback)
-      )
+      new Block(trials, @display.Block)
     )
 
     @prelude.start(@context).then(=> @blockList.start(@context))

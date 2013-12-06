@@ -9,12 +9,14 @@ var express = require('express')
   , http = require('http')
   , path = require('path')
 
-var redux = require("coffee-script-redux")
+//var redux = require("coffee-script-redux")
 
 var app = express();
 
+var port = process.env.PORT || 5000;
+
 app.configure(function(){
-  app.set('port', 3000);
+  app.set('port', port);
   app.set('views', __dirname + '/views');
   app.set('view engine', 'jade');
   app.use(express.favicon());
@@ -37,22 +39,22 @@ app.get('/', routes.index);
 app.get('/users', user.list);
 
 
-app.post('/test-page', function(req, res) {
-    console.log("req", req.body.code);
-    var result = redux.parse(req.body.code);
-    var jsAST = redux.compile(result);
-    var jsout = redux.jsWithSourceMap(jsAST);
-    console.log(jsout);
-    console.log("sending", jsout.code);
-    res.send(jsout.code);
-});
+//app.post('/test-page', function(req, res) {
+//    console.log("req", req.body.code);
+//    var result = redux.parse(req.body.code);
+//    var jsAST = redux.compile(result);
+//    var jsout = redux.jsWithSourceMap(jsAST);
+//    console.log(jsout);
+//    console.log("sending", jsout.code);
+//    res.send(jsout.code);
+//});
 
 
 //http.createServer(app).listen(process.env.PORT, process.env.IP, function(){
 //  console.log("Express server listening on port " + app.get('port'));
 // });
 
-http.createServer(app).listen(3000, function(){
+http.createServer(app).listen(app.get('port'), function(){
       console.log("Express server listening on port " + app.get('port'));
 });
 

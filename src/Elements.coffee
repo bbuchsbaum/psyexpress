@@ -758,24 +758,25 @@ class StartButton extends Stimulus
 position = (pos, offx, offy, width, height, xy) ->
   switch pos
     when "center" then [offx + width * .5, offy + height * .5]
-    when "center-left" then [offx + width * 1/6, offy + height * .5]
-    when "center-right" then [offx + width * 5/6, offy + height * .5]
-    when "top-left" then [offx + width * 1/6, offy + height * 1/6]
-    when "top-right" then [offx + width * 5/6, offy + height * 1/6]
-    when "top-center" then [offx + width * .5, offy + height * 1/6]
-    when "bottom-left" then [offx + width * 1/6, offy + height * 5/6]
-    when "bottom-right" then [offx + width * 5/6, offy + height * 5/6]
-    when "bottom-center" then [offx + width * .5, offy + height * 5/6]
+    when "center-left" or "left-center" then [offx + width * 1/6, offy + height * .5]
+    when "center-right" or "right-center" then [offx + width * 5/6, offy + height * .5]
+    when "top-left" or "left-top" then [offx + width * 1/6, offy + height * 1/6]
+    when "top-right" or "right-top" then [offx + width * 5/6, offy + height * 1/6]
+    when "top-center" or "center-top" then [offx + width * .5, offy + height * 1/6]
+    when "bottom-left" or "left-bottom" then [offx + width * 1/6, offy + height * 5/6]
+    when "bottom-right" or "right-bottom" then [offx + width * 5/6, offy + height * 5/6]
+    when "bottom-center" or "center-bottom" then [offx + width * .5, offy + height * 5/6]
 
     else xy
 
 exports.Text =
 class Text extends Stimulus
   constructor: (spec = {}) ->
-    super(spec, { content: "Text", x: 5, y: 5, width: null, fill: "black", fontSize: 50, fontFamily: "Arial", lineHeight: 1, textAlign: "center", position: null} )
+    super(spec, { content: "Text", x: 5, y: 5, width: null, fill: "black", fontSize: 40, fontFamily: "Arial", lineHeight: 2, textAlign: "center", position: null} )
+    if (_.isArray(@spec.content))
+      @spec.content = @spec.content.join("\n")
 
   render: (context, layer) ->
-    #console.log("trial meta ", context.currentTrial.meta)
 
     text = new Kinetic.Text({
       x: @spec.x,
@@ -784,14 +785,15 @@ class Text extends Stimulus
       fontSize: @spec.fontSize,
       fontFamily: @spec.fontFamily,
       fill: @spec.fill
-      #width: @spec.width or context.width()
+      lineHeight: @spec.lineHeight
+      width: @spec.width or context.width()
       listening: false
+      align: @spec.textAlign
     })
 
     if @spec.position
       xy = position(@spec.position, -text.getWidth()/2, -text.getHeight()/2, context.width(), context.height(), [@spec.x, @spec.y])
       text.setPosition({x:xy[0], y:xy[1]})
-
 
 
     layer.add(text)
@@ -942,22 +944,37 @@ class Instructions extends Response
     context.appendHtml(@menu)
     #context.appendHtml(@nav)
 
+exports.HtmlStimulus =
+class HtmlStimulus extends Stimulus
+  constructor: (spec={}, defargs={}) ->
+    super(spec, defargs)
 
+  positionElement: (element) ->
+    if (@spec.x? and @spec.y?)
+      element.css({
+        position: "absolute"
+        left: @spec.x
+        top: @spec.y
+      })
+
+  centerElement: (element) ->
+    element.css({
+      margin: "0 auto"
+      position: "absolute"
+      left: "50%"
+      top: "50%"
+    })
 
 
 exports.HtmlIcon =
-class HtmlIcon extends Stimulus
+class HtmlIcon extends HtmlStimulus
   constructor: (spec={}) ->
     super(spec, {glyph: "plane", size: "massive"})
     @html = $("<i></i>")
     @html.addClass(@spec.glyph + " " + @spec.size + " icon")
 
-    if (@spec.x? and @spec.y?)
-      @html.css({
-        position: "absolute"
-        left: @spec.x
-        top: @spec.y
-      })
+    @positionElement(@html)
+    #@centerElement(@html)
 
   render: (context, layer) ->
 
@@ -1202,10 +1219,12 @@ class KineticStimFactory extends Psy.StimFactory
       else throw "No Stimulus type of name #{name}"
 
   makeResponse: (name, params, context) ->
+    console.log("making response", name)
     switch name
       when "KeyPress" then new KeyPressResponse(params)
+      when "SpaceKey" then new SpaceKeyResponse(params)
       when "Timeout" then new Timeout(params)
-      else throw "No Response type of name #{name}"
+      else throw new Error("No Response type of name #{name}")
 
   makeEvent: (stim, response) -> new Psy.Event(stim, response)
 

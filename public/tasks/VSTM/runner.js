@@ -37,25 +37,29 @@
           }
         }
       },
-      Block: function(context) {
-        return {
-          Start: {
+      Block: {
+        Start: function(context) {
+          return {
             Text: {
-              content: "Starting Block. Press 'Enter' to Continue"
+              position: "center",
+              content: ["Get Ready!", "Press Space Bar to start"]
             },
             Next: {
-              keys: ['ENTER']
+              SpaceKey: ""
             }
-          },
-          End: {
+          };
+        },
+        End: function(context) {
+          return {
             Text: {
-              content: "End of Block. Press Enter to continue to Next Block"
+              position: "center",
+              content: ["End of Block", "Press Space Bar to continue to next block"]
             },
             Next: {
-              keys: ['ENTER']
+              SpaceKey: ""
             }
-          }
-        };
+          };
+        }
       },
       Trial: function(trial) {
         var colors, i, pos, probeColor, probeIndex, probePos, setdiff, _i, _ref, _results;
@@ -114,7 +118,7 @@
               }
             },
             3: {
-              Clear: null,
+              Clear: 0,
               Next: {
                 Timeout: {
                   duration: 1500
