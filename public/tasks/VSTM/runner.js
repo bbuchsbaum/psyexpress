@@ -39,6 +39,7 @@
       },
       Block: {
         Start: function(context) {
+          console.log("context", context);
           return {
             Text: {
               position: "center",
@@ -50,6 +51,8 @@
           };
         },
         End: function(context) {
+          console.log("context", context);
+          console.log("responses", context.eventData.findAll("probeResponse"));
           return {
             Text: {
               position: "center",

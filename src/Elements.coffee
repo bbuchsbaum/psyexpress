@@ -170,6 +170,8 @@ class Response extends Stimulus
   constructor: (spec, defaultArgs) ->
     super(spec, defaultArgs)
 
+  start: (context) -> @activate(context)
+
   activate: (context) ->
 
 exports.Response = Response
@@ -908,6 +910,7 @@ class Instructions extends Response
     #@nav = $("<div></div>").addClass("ui borderless pagination menu").append(@back).append("\n").append(@next).css("position", "absolute").css("right", "0px")
 
     @currentPage = 0
+
 
   activate: (context) ->
 

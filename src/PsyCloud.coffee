@@ -107,6 +107,9 @@ class EventDataLog
       throw "EventLog is Empty, canot access last element"
     @eventStack[@eventStack.length-1].data
 
+  findAll: (id) ->
+    _.filter(@eventStack, (ev) -> ev.id == id)
+
 
   findLast: (id) ->
     len = @eventStack.length - 1
@@ -532,43 +535,50 @@ exports.Event =
   class Event extends RunnableNode
 
     constructor: (@stimulus, @response) ->
+      super([@response])
 
     stop: (context) ->
       @stimulus.stop(context)
       @response.stop(context)
 
-    start: (context) ->
-      ## clear layer
 
-      if not @stimulus.overlay
-        context.clearContent()
+    before: (context) ->
+      =>
+        self = this
 
-      #else
-      #  console.log("stimulus overlay", @stimulus.overlay)
-      #  context.clearContent()
-      #  context.drawBackground()
+        if not context.exState.inPrelude
+          console.log("event not in prelude")
+          context.updateState( =>
+            context.exState.nextEvent(self)
+          )
 
+        if not @stimulus.overlay
+          context.clearContent()
 
-      ## render stimulus
-      @stimulus.render(context, context.contentLayer)
+        @stimulus.render(context, context.contentLayer)
+        context.draw()
 
-      context.draw()
-
-
-      ## activate response
-      @response.activate(context).then((ret) =>
-        ##
+    after: (context) ->
+      =>
         @stimulus.stop(context)
-        ret
-      ,
-        (err) ->
-          throw new Error("Error during Response activation", err)
-      )
+
+
+    start: (context) ->
+      super(context)
+      ## activate response
+      #@response.activate(context).then((ret) =>
+      #  ##
+      #  @stimulus.stop(context)
+      #  ret
+      #,
+      #  (err) ->
+      #    throw new Error("Error during Response activation", err)
+      #)
 
 
 exports.Trial =
   class Trial extends RunnableNode
-    constructor: (events = [], @meta={}, @feedback, @background) ->
+    constructor: (events = [], @record={}, @feedback, @background) ->
       super(events)
 
     numEvents: ->
@@ -578,6 +588,13 @@ exports.Trial =
 
     before: (context) ->
       =>
+        self = this
+        console.log("before trial")
+        context.updateState( =>
+          console.log("updating trial state")
+          context.exState.nextTrial(self)
+        )
+
         context.clearBackground()
 
         if @background?
@@ -611,7 +628,8 @@ exports.Trial =
 
 exports.Block =
   class Block extends RunnableNode
-    constructor: (children, @blockSpec) -> super(children)
+    constructor: (children, @blockSpec) ->
+      super(children)
 
 
     showEvent: (spec, context) ->
@@ -619,13 +637,20 @@ exports.Block =
       event.start(context)
 
     before: (context) ->
+      self = this
       =>
-        console.log("before Block function")
+        console.log("updating block state")
+        context.updateState( =>
+          context.exState.nextBlock(self)
+        )
+
         if @blockSpec? and @blockSpec.Start
           spec = @blockSpec.Start(context)
           @showEvent(spec, context)
         else
           Q.fcall(0)
+
+
 
     after: (context) ->
       =>
@@ -644,6 +669,22 @@ exports.Prelude =
   class Prelude extends RunnableNode
     constructor: (children) -> super(children)
 
+    before: (context) ->
+      =>
+        context.updateState( =>
+          console.log("setting in prelude!")
+          console.log("exState is", context.exState)
+          context.exState.insidePrelude()
+        )
+
+    after: (context) ->
+      =>
+        context.updateState( =>
+          context.exState.outsidePrelude()
+        )
+
+
+
 exports.BlockSeq =
   class BlockSeq extends RunnableNode
     constructor: (children) -> super(children)
@@ -651,15 +692,97 @@ exports.BlockSeq =
 
 
 
-#exports.ExperimentState =
-#  class ExperimentState
-#    constructor: (@currentTrial, @currentBlock, @blockNumber, @trialNumber) ->
+exports.ExperimentState =
+  class ExperimentState
+
+    constructor: () ->
+      @inPrelude = false
+      @trial = {}
+      @block = {}
+      @event = {}
+      @blockNumber = 0
+      @trialNumber = 0
+      @eventNumber = 0
+
+      @stimulus = {}
+      @response = {}
+
+
+    insidePrelude: ->
+      console.log("in prelude")
+      ret = clone(this)
+      console.log("cloned state", ret)
+      ret.inPrelude = true
+      ret
+
+    outsidePrelude: ->
+      console.log("out prelude")
+      ret = clone(this)
+      console.log("cloned state", ret)
+      ret.inPrelude = false
+      ret
+
+    nextBlock: (block) ->
+      console.log("next Block")
+      #ret = clone(this)
+      ret = _.clone(this)
+      console.log("cloned state", ret)
+      ret.blockNumber = @blockNumber + 1
+      ret.block = block
+      ret
+
+    nextTrial: (trial) ->
+      console.log("next Trial", trial)
+      console.log("trying to clone")
+      #ret = clone(this)
+      ret = _.clone(this)
+      console.log("clone success!")
+      ret.trial = trial
+      ret.trialNumber = @trialNumber + 1
+      console.log("ret trial is", ret)
+      ret
+
+    nextEvent: (event) ->
+      console.log("next Event")
+      #ret = clone(this)
+      ret = _.clone(this)
+      ret.event = event
+      ret.eventNumber = @eventNumber + 1
+      ret
+
+    toRecord: ->
+      {
+        $blockNumber: @blockNumber
+        $trialNumber: @trialNumber
+        $eventNumber: @eventNumber
+        $stimulus: @event?.stimulus?.constructor.name
+        $response: @event?.response?.constructor.name
+        #$stimulusID: @event?.stimulus?.id
+        #$responseID: @event?.response?.id
+
+      }
+
+      if @trial?.record?
+        for key, value in @trial.record
+          ret[key] = value
+      ret
+
+
+
+
+
+#x1 = new ExperimentState()
+#x2 = x1.nextBlock()
+#console.log("ESTATE", x2)
+
 
 
 
 exports.ExperimentContext =
   class ExperimentContext
     constructor: (@stimFactory) ->
+      @exState = new ExperimentState()
+
       @eventData = new EventDataLog()
 
       @log = []
@@ -668,12 +791,18 @@ exports.ExperimentContext =
 
       @currentTrial =  new Trial([], {})
 
+    updateState: (fun) ->
+      @exState = fun(@exState)
+      console.log("new state is", @exState)
+      #console.log("record is", @exState.toRecord())
+      @exState
+
     pushEventData: (ev) ->
       @eventData.push(ev)
 
     logEvent: (key, value) ->
 
-      record = _.clone(@currentTrial.meta)
+      record = _.clone(@currentTrial.record)
       record[key] = value
       @log.push(record)
       console.log(@log)

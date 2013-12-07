@@ -53,6 +53,7 @@ window.display =
 
     Block:
       Start: (context) ->
+        console.log("context", context)
         Text:
           position: "center"
           content: ["Get Ready!", "Press Space Bar to start"]
@@ -60,6 +61,8 @@ window.display =
           SpaceKey: ""
 
       End: (context) ->
+        console.log("context", context)
+        console.log("responses", context.eventData.findAll("probeResponse"))
         Text:
           position: "center"
           content: ["End of Block", "Press Space Bar to continue to next block"]

@@ -220,6 +220,10 @@
       Response.__super__.constructor.call(this, spec, defaultArgs);
     }
 
+    Response.prototype.start = function(context) {
+      return this.activate(context);
+    };
+
     Response.prototype.activate = function(context) {};
 
     return Response;

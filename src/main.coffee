@@ -5,6 +5,7 @@ Dots = require("./DotMotion")
 _ = require('lodash')
 Q = require("q")
 
+
 for key, value of Psy
   exports[key] = value
 
@@ -17,6 +18,7 @@ for key, value of Dots
 
 exports.Q = Q
 exports._ = _
+
 
 
 
