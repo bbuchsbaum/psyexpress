@@ -51,12 +51,19 @@
           };
         },
         End: function(context) {
+          var RTavg, RTs, db;
           console.log("context", context);
-          console.log("responses", context.eventData.findAll("probeResponse"));
+          db = context.eventDB;
+          RTs = db().filter({
+            id: "probeResponse"
+          }).select("RT");
+          RTavg = Number(_.reduce(RTs, function(sum, num) {
+            return sum + num;
+          }) / RTs.length).toFixed(2);
           return {
             Text: {
               position: "center",
-              content: ["End of Block", "Press Space Bar to continue to next block"]
+              content: ["End of Block", "Average RT: " + RTavg, "Press Space Bar to continue to next block"]
             },
             Next: {
               SpaceKey: ""
@@ -153,9 +160,10 @@
               }
             }
           },
-          Feedback: function(eventStack) {
+          Feedback: function(eventDB) {
             var ev;
-            ev = eventStack.last();
+            ev = eventDB().last();
+            console.log("feedback event", ev);
             return {
               HtmlIcon: {
                 glyph: ev.Accuracy === true ? "checkmark" : "frown",

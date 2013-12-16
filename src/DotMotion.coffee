@@ -1,6 +1,5 @@
 
-Psy = require("./PsyCloud")
-El = require("./Elements")
+Base = require("./stimresp")
 _ = require('lodash')
 
 
@@ -61,7 +60,7 @@ class DotSet
 
 
 exports.RandomDotMotion =
-class RandomDotMotion extends El.Stimulus
+class RandomDotMotion extends Base.Stimulus
   constructor: (spec={x: 0, y: 0, numDots: 70, apRadius:400, dotSpeed: .02, dotSize:2, coherence: .55, partitions: 3}) ->
     @numDots = spec.numDots
     @apRadius = spec.apRadius

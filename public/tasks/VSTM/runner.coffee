@@ -62,10 +62,15 @@ window.display =
 
       End: (context) ->
         console.log("context", context)
-        console.log("responses", context.eventData.findAll("probeResponse"))
+        db = context.eventDB
+        RTs = db().filter(id: "probeResponse").select("RT")
+        RTavg = Number(_.reduce(RTs, (sum, num) -> sum + num)/RTs.length).toFixed(2)
+
+
+
         Text:
           position: "center"
-          content: ["End of Block", "Press Space Bar to continue to next block"]
+          content: ["End of Block", "Average RT: #{RTavg}", "Press Space Bar to continue to next block"]
         Next:
           SpaceKey: ""
 
@@ -130,8 +135,9 @@ window.display =
               correct: if trial.probe is "match" then 'n' else 'm'
               #timeout: 3000
 
-      Feedback: (eventStack) ->
-        ev = eventStack.last()
+      Feedback: (eventDB) ->
+        ev = eventDB().last()
+        console.log("feedback event", ev)
         HtmlIcon:
           glyph: if ev.Accuracy is true then "checkmark" else "frown"
           size: "massive"

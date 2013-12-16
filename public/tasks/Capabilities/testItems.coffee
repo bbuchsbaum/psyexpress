@@ -77,29 +77,29 @@
 
 @testSet =
   FixationCross:
-    "Default Fixation": makeTrial(new Psy.FixationCross(),SpaceOrTimeout5000)
-    "Blue Fixation": makeTrial(new Psy.FixationCross({fill: "blue"}),SpaceOrTimeout5000)
-    "Fixation 200px": makeTrial(new Psy.FixationCross({length: 200}),SpaceOrTimeout5000)
-    "Fixation stroke width 20px": makeTrial(new Psy.FixationCross({strokeWidth: 20}),SpaceOrTimeout5000)
+    "Default Fixation": makeTrial(new Psy.Kinetic.FixationCross(),SpaceOrTimeout5000)
+    "Blue Fixation": makeTrial(new Psy.Kinetic.FixationCross({fill: "blue"}),SpaceOrTimeout5000)
+    "Fixation 200px": makeTrial(new Psy.Kinetic.FixationCross({length: 200}),SpaceOrTimeout5000)
+    "Fixation stroke width 20px": makeTrial(new Psy.Kinetic.FixationCross({strokeWidth: 20}),SpaceOrTimeout5000)
 
 
   Text:
     "Positioning with Labels": makeTrial(new Psy.Group(
-      [new Psy.Text({content: "Center", position: "center", fontSize: 20}),
-       new Psy.Text({content: "Center Left", position: "center-left", fontSize: 20}),
-       new Psy.Text({content: "Center Right", position: "center-right", fontSize: 20}),
-       new Psy.Text({content: "Top Left", position: "top-left", fontSize: 20}),
-       new Psy.Text({content: "Top Right", position: "top-right", fontSize: 20}),
-       new Psy.Text({content: "Top Center", position: "top-center", fontSize: 20}),
-       new Psy.Text({content: "Bottom Left", position: "bottom-left", fontSize: 20}),
-       new Psy.Text({content: "Bottom Right", position: "bottom-right", fontSize: 20}),
-      new Psy.Text({content: "Bottom Center", position: "bottom-center", fontSize: 20})
+      [new Psy.Kinetic.Text({content: "Center", position: "center", fontSize: 20}),
+       new Psy.Kinetic.Text({content: "Center Left", position: "center-left", fontSize: 20}),
+       new Psy.Kinetic.Text({content: "Center Right", position: "center-right", fontSize: 20}),
+       new Psy.Kinetic.Text({content: "Top Left", position: "top-left", fontSize: 20}),
+       new Psy.Kinetic.Text({content: "Top Right", position: "top-right", fontSize: 20}),
+       new Psy.Kinetic.Text({content: "Top Center", position: "top-center", fontSize: 20}),
+       new Psy.Kinetic.Text({content: "Bottom Left", position: "bottom-left", fontSize: 20}),
+       new Psy.Kinetic.Text({content: "Bottom Right", position: "bottom-right", fontSize: 20}),
+      new Psy.Kinetic.Text({content: "Bottom Center", position: "bottom-center", fontSize: 20})
       ]), SpaceKey)
 
-    "75 Point Font": makeTrial(new Psy.Text({content: "75 Point Font", position: "center", fontSize: 75}),SpaceKey)
-    "12 Point Font": makeTrial(new Psy.Text({content: "12 Point Font", position: "center", fontSize: 12}),SpaceKey)
+    "75 Point Font": makeTrial(new Psy.Kinetic.Text({content: "75 Point Font", position: "center", fontSize: 75}),SpaceKey)
+    "12 Point Font": makeTrial(new Psy.Kinetic.Text({content: "12 Point Font", position: "center", fontSize: 12}),SpaceKey)
 
-    "Paragraph": makeTrial(new Psy.Text({
+    "Paragraph": makeTrial(new Psy.Kinetic.Text({
       content:
         "Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.\n
         Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor\n
@@ -110,7 +110,7 @@
       SpaceKey)
 
   Markdown:
-    "Basic Example": makeTrial(new Psy.Markdown("""
+    "Basic Example": makeTrial(new Psy.Html.Markdown("""
 
     A First Level Header Today tttt
     ===================
@@ -137,32 +137,36 @@
 
     """), SpaceKey)
 
-    "An External URL": makeTrial(new Psy.Markdown({url: "/tasks/Capabilities/resources/page-1.md"}), SpaceKey)
+    "An External URL": makeTrial(new Psy.Html.Markdown({url: "/tasks/Capabilities/resources/page-1.md"}), SpaceKey)
 
 
   HtmlIcon:
-    Default: makeTrial(new Psy.HtmlIcon(), SpaceOrTimeout5000)
-    PercentagePositioning: makeTrial(new Psy.HtmlIcon({label: "[50%,50%]", x: "40%", y: "40%"}), SpaceOrTimeout5000)
+    Default: makeTrial(new Psy.Html.HtmlIcon(), SpaceOrTimeout5000)
+    PercentagePositioning: makeTrial(new Psy.Html.HtmlIcon({label: "[50%,50%]", x: "40%", y: "40%"}), SpaceOrTimeout5000)
 
   HtmlLink:
-    Default: makeTrial(new Psy.HtmlLink(), SpaceOrTimeout5000)
-    XYPositioning: makeTrial(new Psy.HtmlLink({label: "[100,100]", x: 100, y: 100}), SpaceOrTimeout5000)
-    PercentagePositioning: makeTrial(new Psy.HtmlLink({label: "[80%,80%]", x: "80%", y: "80%"}), SpaceOrTimeout5000)
+    Default: makeTrial(new Psy.Html.HtmlLink(), SpaceOrTimeout5000)
+    XYPositioning: makeTrial(new Psy.Html.HtmlLink({label: "[100,100]", x: 100, y: 100}), SpaceOrTimeout5000)
+    PercentagePositioning: makeTrial(new Psy.Html.HtmlLink({label: "[80%,80%]", x: "80%", y: "80%"}), SpaceOrTimeout5000)
 
   HtmlButton:
-    Default: makeTrial(new Psy.HtmlButton(), SpaceOrTimeout5000)
-    PercentagePositioning: makeTrial(new Psy.HtmlButton({label: "[80%,80%]", x: "80%", y: "80%"}), SpaceOrTimeout5000)
-    CircularButton: makeTrial(new Psy.HtmlButton({label: "[50%,50%]", x: "50%", y: "50%", class: "circular"}), SpaceOrTimeout5000)
+    Default: makeTrial(new Psy.Html.HtmlButton(), SpaceOrTimeout5000)
+    PercentagePositioning: makeTrial(new Psy.Html.HtmlButton({label: "[80%,80%]", x: "80%", y: "80%"}), SpaceOrTimeout5000)
+    CircularButton: makeTrial(new Psy.Html.HtmlButton({label: "[50%,50%]", x: "50%", y: "50%", class: "circular"}), SpaceOrTimeout5000)
     "Button over Crosshair": makeTrial(new Psy.Group([
-      new Psy.HtmlButton({label: "[50%,50%]", x: "50%", y: "50%", class: "circular huge"}),
-      new Psy.FixationCross()
+      new Psy.Html.HtmlButton({label: "[50%,50%]", x: "50%", y: "50%", class: "circular huge"}),
+      new Psy.Kinetic.FixationCross()
     ]), SpaceKey)
+
+  HtmlRange:
+    Default: makeTrial(new Psy.HtmlRange(), SpaceKey)
+
 
 
   Blank:
-    "Black Background": makeTrial(new Psy.Blank({fill: "black"}), SpaceOrTimeout5000)
-    "Green Background": makeTrial(new Psy.Blank({fill: "green"}), SpaceOrTimeout5000)
-    "RGB (33, 55, 67)": makeTrial(new Psy.Blank({fill: "rgb(33,55,67)"}), SpaceOrTimeout5000)
+    "Black Background": makeTrial(new Psy.Kinetic.Blank({fill: "black"}), SpaceOrTimeout5000)
+    "Green Background": makeTrial(new Psy.Kinetic.Blank({fill: "green"}), SpaceOrTimeout5000)
+    "RGB (33, 55, 67)": makeTrial(new Psy.Kinetic.Blank({fill: "rgb(33,55,67)"}), SpaceOrTimeout5000)
 
   CanvasBorder:
     "Default": makeTrial(new Psy.CanvasBorder(), SpaceKey)
@@ -188,22 +192,26 @@
     "Green Circle Blue Stroke": makeTrial(new Psy.Circle({radius: 50, fill: "green", stroke: "blue"}), SpaceOrTimeout5000)
 
   Arrow:
-    "Default Arrow": makeTrial(new Psy.Arrow(), SpaceKey)
-    "Blue Arrow, length 200": makeTrial(new Psy.Arrow({length: 200, fill: "blue"}), SpaceKey)
-    "Blue Arrow, black stroke": makeTrial(new Psy.Arrow({length: 200, fill: "blue", stroke: "black", strokeWidth: 4}), SpaceKey)
+    "Default Arrow": makeTrial(new Psy.Kinetic.Arrow(), SpaceKey)
+    "Blue Arrow, length 200": makeTrial(new Psy.Kinetic.Arrow({length: 200, fill: "blue"}), SpaceKey)
+    "Blue Arrow, black stroke": makeTrial(new Psy.Kinetic.Arrow({length: 200, fill: "blue", stroke: "black", strokeWidth: 4}), SpaceKey)
     "Rotating Arrow": makeTrial(new Psy.Sequence(
       for i in [0 .. 360] by 2
-        new Psy.Arrow({x:300, y:300, length: 200, fill: "black", angle: i})
+        new Psy.Kinetic.Arrow({x:300, y:300, length: 200, fill: "black", angle: i})
       [40]), SpaceKey)
 
     "Rotating Arrow no clear": makeTrial(new Psy.Sequence(
       for i in [0 .. 360] by 2
-        new Psy.Arrow({x:300, y:300, length: 200, fill: "black", angle: i, opacity: i/720})
+        new Psy.Kinetic.Arrow({x:300, y:300, length: 200, fill: "black", angle: i, opacity: i/720})
       [40], clear=false),SpaceKey)
 
   Picture:
     "Default Picture": makeTrial(new Psy.Picture(), SpaceKey)
     "Default 300 X 300": makeTrial(new Psy.Picture({width: 300, height: 300}), SpaceKey)
+    "Flicker Two Images 4Hz": makeTrial(new Psy.Sequence(
+      [ new Psy.Picture(url: "images/Sunset.jpg"),
+        new Psy.Picture(url: "images/Shark.jpg")],
+      [250,250], clear=true, times=50), SpaceKey)
 
   StartButton:
     "Start Button": makeTrial(new Psy.StartButton({id: "start"}), new Psy.ClickResponse("start"))
@@ -212,8 +220,8 @@
     "Default MChoice": makeTrial(new Psy.MultipleChoice(), SpaceKey)
 
   Page:
-    "Test Html": makeTrial(new Psy.Page(), SpaceKey)
-    Message: makeTrial(new Psy.Page(
+    "Test Html": makeTrial(new Psy.Html.Page(), SpaceKey)
+    Message: makeTrial(new Psy.Html.Page(
       html:
         """
       <div class="ui message">
@@ -240,8 +248,8 @@
     ), SpaceKey)
 
   Message:
-    "Default": makeTrial(new Psy.Message(), SpaceKey)
-    "Basic Message in Red": makeTrial(new Psy.Message({
+    "Default": makeTrial(new Psy.Html.Message(), SpaceKey)
+    "Basic Message in Red": makeTrial(new Psy.Html.Message({
       title: "This is a massive message in red"
       content: """
         Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
@@ -253,18 +261,18 @@
       size: "massive"
     }), SpaceKey)
     "Multiple Messages": makeTrial(new Psy.Group(
-      [new Psy.Message({ title: "message 1", content: "This is Message 1", color: "blue"}),
-       new Psy.Message({ title: "message 2", content: "This is Message 2", color: "red"}),
-       new Psy.Message({ title: "message 3", content: "This is Message 3", color: "green"})
+      [new Psy.Html.Message({ title: "message 1", content: "This is Message 1", color: "blue"}),
+       new Psy.Html.Message({ title: "message 2", content: "This is Message 2", color: "red"}),
+       new Psy.Html.Message({ title: "message 3", content: "This is Message 3", color: "green"})
       ]), SpaceKey)
 
     "Message and Canvas Rect": makeTrial(new Psy.Group(
-      [new Psy.Message({ title: "message 1", content: "This is Message 1", color: "blue"}),
-      new Psy.FixationCross()]), SpaceKey)
+      [new Psy.Html.Message({ title: "message 1", content: "This is Message 1", color: "blue"}),
+      new Psy.Kinetic.FixationCross()]), SpaceKey)
 
 
   Instructions:
-    "Simple Test": makeResponseTrial(new Psy.Instructions(
+    "Simple Test": makeResponseTrial(new Psy.Html.Instructions(
       pages:
         1: Markdown: "Hello"
         2: Markdown: "Goodbye"
@@ -295,21 +303,21 @@
 
   Sequence:
     "Count to Three": makeTrial(new Psy.Sequence(
-      [ new Psy.Text({content: "One", position: "center"}),
-        new Psy.Text({content: "Two", position: "center"}),
-        new Psy.Text({content: "Three", position: "center"})],
+      [ new Psy.Kinetic.Text({content: "One", position: "center"}),
+        new Psy.Kinetic.Text({content: "Two", position: "center"}),
+        new Psy.Kinetic.Text({content: "Three", position: "center"})],
       [1000, 2000, 4000]), SpaceKey)
     "Count to Three with Overlay": makeTrial(new Psy.Sequence(
-      [ new Psy.Text({content: "One", position: "center-left"}),
-        new Psy.Text({content: "Two", position: "center"}),
-        new Psy.Text({content: "Three", position: "center-right"})],
+      [ new Psy.Kinetic.Text({content: "One", position: "center-left"}),
+        new Psy.Kinetic.Text({content: "Two", position: "center"}),
+        new Psy.Kinetic.Text({content: "Three", position: "center-right"})],
       [1000, 2000, 4000], clear=false), SpaceKey)
     "Fast Countdown": makeTrial(new Psy.Sequence(
       for i in [50..0]
         r = i*4
         g = 255 - (i*4)
         b = i
-        new Psy.Text({content: i, position: "center", fontSize: 80 + i*2, fill: "rgb(#{r},#{g},#{b})"})
+        new Psy.Kinetic.Text({content: i, position: "center", fontSize: 80 + i*2, fill: "rgb(#{r},#{g},#{b})"})
       [80]), SpaceKey)
     "Repeating Squares": makeTrial(new Psy.Sequence(
       [ new Psy.Rectangle({position: [2,2], width: 80, height: 80, fill: "red", layout: gridlayout}),
@@ -320,12 +328,12 @@
 
   Background:
     "Background fill": wrapEvents([
-      new Psy.Event(new Psy.Text({content: "Hello,"}), Timeout1000),
-      new Psy.Event(new Psy.Text({content: "How"}), Timeout1000),
-      new Psy.Event(new Psy.Text({content: "are"}), Timeout1000),
-      new Psy.Event(new Psy.Text({content: "you"}), Timeout1000),
-      new Psy.Event(new Psy.Text({content: "Today"}), SpaceKey)],
-      new Psy.Background([new Psy.Text({content: "I am a background stimulus", position: "bottom-center"})],  "red"))
+      new Psy.Event(new Psy.Kinetic.Text({content: "Hello,"}), Timeout1000),
+      new Psy.Event(new Psy.Kinetic.Text({content: "How"}), Timeout1000),
+      new Psy.Event(new Psy.Kinetic.Text({content: "are"}), Timeout1000),
+      new Psy.Event(new Psy.Kinetic.Text({content: "you"}), Timeout1000),
+      new Psy.Event(new Psy.Kinetic.Text({content: "Today"}), SpaceKey)],
+      new Psy.Background([new Psy.Kinetic.Text({content: "I am a background stimulus", position: "bottom-center"})],  "red"))
 
   TextInput:
     "Default TextInput": makeTrial(new Psy.TextInput(), SpaceKey)
