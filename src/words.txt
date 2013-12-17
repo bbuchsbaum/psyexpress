@@ -1,5 +1,0 @@
-words       syllables
-hello       2
-goodbye     2
-yes         1
-no          1
