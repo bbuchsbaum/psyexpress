@@ -28,21 +28,6 @@ getTimestamp = utils.getTimeStamp
 
 
 
-exports.Timeout =
-class Timeout extends Response
-
-  constructor: (spec = {}) ->
-    super(spec, { duration: 2000 } )
-
-    @oninstance = (steps, count) -> console.log(steps, count)
-
-  activate: (context) ->
-    deferred = Q.defer()
-
-    doTimer(@spec.duration, (diff) => deferred.resolve({timeout: diff, requested: @spec.duration}))
-    deferred.promise
-
-
 
 exports.Prompt =
 class Prompt extends Response
