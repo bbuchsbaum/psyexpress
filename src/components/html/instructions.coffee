@@ -1,6 +1,7 @@
 html = require("./html")
 Q = require("q")
 Markdown = require("./markdown").Markdown
+_ = require('lodash')
 
 class Instructions extends html.HtmlResponse
   constructor: (spec = {}) ->

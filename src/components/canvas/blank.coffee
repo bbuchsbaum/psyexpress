@@ -1,4 +1,4 @@
-_ = require('lodash')
+
 Stimulus = require("../../stimresp").Stimulus
 
 
