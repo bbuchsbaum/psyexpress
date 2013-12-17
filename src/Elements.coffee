@@ -10,6 +10,7 @@ lay = require("./layout")
 Base = require("./stimresp")
 Stimulus = Base.Stimulus
 Response = Base.Response
+Background = require("./components/canvas/Background").Background
 
 {renderable, ul, li, input} = require('teacup')
 
@@ -83,43 +84,6 @@ exports.Confirm =
       deferred.promise
 
 
-exports.TypedResponse =
-class TypedResponse
-  constructor: (spec = {}) ->
-    super(spec,  { left: 250, top: 250, defaultValue: "" })
-
-  activate: (context) ->
-    deferred = Q.defer()
-
-    enterPressed = false
-    freeText = "____"
-    text = new fabric.Text(freeText, { top: @spec.top, left: @spec.left, fontSize: 50, textAlign: "left" })
-    context.canvas.add(text)
-    xoffset = text.width/2
-
-    cursor = new fabric.Line([@spec.left, @spec.top + text.height/2, @spec.left, @spec.top-(text.height/2)])
-    context.canvas.add(cursor)
-
-    keyStream = context.keypressStream()
-    keyStream.takeWhile((x) => enterPressed is false).onValue((event) =>
-
-      if event.keyCode == 13
-        enterPressed = true
-        deferred.resolve(freeText)
-      else
-        char = String.fromCharCode(event.keyCode)
-        freeText = freeText + char
-        text.setText(freeText)
-        text.set("left": @spec.left + (text.width/2 - xoffset))
-        console.log(text.width)
-        console.log(text.height)
-        #console.log(text.getCenterPoint())
-        #console.log(text.getBoundingRect())
-        context.canvas.renderAll())
-
-
-    deferred.promise
-
 
 
 exports.MousePressResponse =
@@ -129,7 +93,7 @@ class MousePressResponse extends Response
     super({}, {})
 
   activate: (context) ->
-    deferred = Q.de fer()
+    deferred = Q.defer()
     mouse = context.mousepressStream()
     mouse.stream.take(1).onValue((event) =>
                                mouse.stop()
@@ -219,127 +183,7 @@ class ClickResponse extends Response
     deferred.promise
 
 
-exports.GridLines =
-class GridLines extends Stimulus
-  constructor: (spec = {}) ->
-    super(spec, { x: 0, y: 0, rows: 3, cols: 3, stroke: "black", strokeWidth: 2})
 
-  render: (context, layer) ->
-    for i in [0..@spec.rows]
-      y = @spec.y + (i * context.height()/@spec.rows)
-      line = new Kinetic.Line({
-        points: [@spec.x, y, @spec.x + context.width(), y]
-        stroke: @spec.stroke
-        strokeWidth: @spec.strokeWidth
-        dashArray: @spec.dashArray
-      })
-
-      layer.add(line)
-
-    for i in [0..@spec.cols]
-      x = @spec.x + (i * context.width()/@spec.cols)
-      line = new Kinetic.Line({
-        points: [x, @spec.y, x, @spec.y + context.height()]
-        stroke: @spec.stroke
-        strokeWidth: @spec.strokeWidth
-        dashArray: @spec.dashArray
-      })
-
-      layer.add(line)
-
-
-
-
-exports.TextInput =
-class TextInput extends Stimulus
-  constructor: (spec = {}) ->
-    disableBrowserBack()
-    super(spec, { x: 100, y: 100, width: 200, height: 40, defaultValue: "", fill: "#FAF5E6", stroke: "#0099FF", strokeWidth: 1, content: "" })
-
-  getChar: (e) ->
-    # key is not shift
-    if e.keyCode!=16
-      # key is a letter
-      if e.keyCode >= 65 && e.keyCode <= 90
-        if e.shiftKey
-          String.fromCharCode(e.keyCode)
-        else
-          String.fromCharCode(e.keyCode + 32)
-      else if e.keyCode >= 48 && e.keyCode <=57
-        String.fromCharCode(e.keyCode)
-      else
-        #console.log("key code is",e.keyCode)
-        switch e.keyCode
-          when 186 then ";"
-          when 187 then "="
-          when 188 then ","
-          when 189 then "-"
-          else ""
-    else
-      String.fromCharCode(e.keyCode)
-
-  animateCursor: (layer, cursor) ->
-    flashTime = 0
-    new Kinetic.Animation((frame) =>
-      if frame.time > (flashTime + 500)
-        flashTime = frame.time
-        if cursor.getOpacity() == 1
-          cursor.setOpacity(0)
-        else
-          cursor.setOpacity(1)
-        layer.draw()
-    , layer)
-
-
-
-
-  render: (context, layer) ->
-
-    textRect = new Kinetic.Rect({x: @spec.x, y: @spec.y, width: @spec.width, height: @spec.height, fill: @spec.fill, cornerRadius: 4, lineJoin: "round", stroke: @spec.stroke, strokeWidth: @spec.strokeWidth})
-    textContent = @spec.content
-
-
-    fsize =  .85 * @spec.height
-
-    text = new Kinetic.Text({text: @spec.content, x: @spec.x+2, y: @spec.y - 5, height: @spec.height, fontSize: fsize, fill: "black", padding: 10, align: "left"})
-    cursor = new Kinetic.Rect({x: text.getX() + text.getWidth() - 7, y: @spec.y + 5, width: 1.5, height: text.getHeight() - 10, fill: "black"})
-
-    enterPressed = false
-    keyStream = context.keydownStream()
-    keyStream.takeWhile((x) => enterPressed is false and not @stopped).onValue((event) =>
-
-      if event.keyCode == 13
-        ## Enter Key, Submit Text
-        enterPressed = true
-        #deferred.resolve(freeText)
-      else if event.keyCode == 8
-        ## Backspace
-        #console.log("delete key")
-        textContent = textContent.slice(0, - 1)
-        text.setText(textContent)
-        cursor.setX(text.getX() + text.getWidth() - 7)
-        layer.draw()
-      else if text.getWidth() > textRect.getWidth()
-        return
-      else
-        char = @getChar(event)
-        #console.log("char is", char)
-        textContent += char
-
-        text.setText(textContent)
-        cursor.setX(text.getX() + text.getWidth() - 7)
-        layer.draw())
-
-    cursorBlink = @animateCursor(layer, cursor)
-    cursorBlink.start()
-
-    group = new Kinetic.Group({})
-
-
-    group.add(textRect)
-    group.add(cursor)
-    group.add(text)
-    layer.add(group)
 
 
 exports.Sound =
@@ -350,32 +194,6 @@ class Sound
 
   render: (context) ->
     @sound.play()
-
-
-exports.Picture =
-class Picture extends Stimulus
-  constructor: (spec = {} ) ->
-    super(spec, { url: "http://www.html5canvastutorials.com/demos/assets/yoda.jpg", x:0, y: 0 })
-    @imageObj = new Image()
-    @image = null
-
-    @imageObj.onload = =>
-
-      @image = new Kinetic.Image({
-        x: @spec.x,
-        y: @spec.y,
-        image: @imageObj,
-        width: @spec.width or @imageObj.width,
-        height: @spec.height or @imageObj.height
-      })
-
-    @imageObj.src = @spec.url
-
-
-
-  render: (context, layer) ->
-    layer.add(@image)
-    #context.contentLayer.draw()
 
 
 
@@ -401,27 +219,6 @@ class Group extends Stimulus
 # VerticalGroup lays out stimuli from top to bottom
 
 
-exports.Background =
-class Background extends Stimulus
-
-  constructor:  (@stims=[], @fill= "white") ->
-    super({}, {})
-
-  render: (context, layer) ->
-    background = new Kinetic.Rect({
-      x: 0,
-      y: 0,
-      width: context.width(),
-      height: context.height(),
-      name: 'background'
-      fill: @fill
-    })
-
-
-    layer.add(background)
-
-    for stim in @stims
-      stim.render(context, layer)
 
 
 exports.Sequence =
@@ -468,92 +265,6 @@ class Sequence extends Stimulus
   #stop: (context) -> @stopped = true
 
 
-exports.Blank =
-class Blank extends Stimulus
-
-  constructor: (spec={}) ->
-    super(spec, { fill: "white" })
-
-
-  render: (context, layer) ->
-    blank = new Kinetic.Rect({ x: 0, y: 0, width: context.width(), height: context.height(), fill: @spec.fill })
-    layer.add(blank)
-
-
-exports.Clear =
-class Clear extends Stimulus
-  constructor: (spec = {}) ->
-    super(spec, {})
-
-  render: (context, layer) ->
-    context.clearContent(true)
-
-
-exports.Rectangle =
-class Rectangle extends Stimulus
-  constructor: (spec = {}) ->
-    super(spec, { x: 0, y: 0, width: 100, height: 100, fill: 'red'} )
-    @spec = _.omit(@spec, (value, key) -> not value)
-
-    if @spec.layout?
-      @layout = @spec.layout
-
-  render: (context, layer) ->
-    console.log("rendering rect")
-    console.log("spec is", @spec)
-    console.log("has computeCoordinates", @computeCoordinates)
-    console.log("position", @spec.position)
-    coords = @computeCoordinates(context, @spec.position)
-    console.log("coords", coords)
-    rect = new Kinetic.Rect({ x: coords[0], y: coords[1], width: @spec.width, height: @spec.height, fill: @spec.fill, stroke: @spec.stroke, strokeWidth: @spec.strokeWidth })
-    layer.add(rect)
-
-
-exports.Circle =
-class Circle extends Stimulus
-    constructor: (spec = {}) ->
-      super(spec, { x: 100, y: 100, radius: 50, fill: 'red', opacity: 1})
-
-    render: (context, layer) ->
-      circ = new Kinetic.Circle({ x: @spec.x, y: @spec.y, radius: @spec.radius, fill: @spec.fill, stroke: @spec.stroke, strokeWidth: @spec.strokeWidth, opacity: @spec.opacity })
-      layer.add(circ)
-      #context.contentLayer.draw()
-
-
-
-
-
-
-exports.CanvasBorder =
-class CanvasBorder extends Stimulus
-  constructor: (spec = {}) ->
-    super(spec, { strokeWidth: 5, stroke: "black" })
-
-  render: (context, layer) ->
-    border = new Kinetic.Rect({ x: 0, y: 0, width: context.width(), height: context.height(), strokeWidth: @spec.strokeWidth, stroke: @spec.stroke })
-    layer.add(border)
-
-
-exports.StartButton =
-class StartButton extends Stimulus
-  constructor: (spec = {}) ->
-    super(spec, { width: 150, height: 75 })
-
-  render: (context, layer) ->
-
-    xcenter = context.width()/2
-    ycenter = context.height()/2
-
-    group = new Kinetic.Group({id: @spec.id})
-
-    text = new Kinetic.Text({text: "Start", x: xcenter - @spec.width/2, y: ycenter - @spec.height/2, width: @spec.width, height: @spec.height, fontSize: 30, fill: "white", fontFamily: "Arial", align: "center", padding: 20})
-    button = new Kinetic.Rect({x: xcenter - @spec.width/2, y: ycenter - text.getHeight()/2, width: @spec.width, height: text.getHeight(), fill: "black", cornerRadius: 10,  stroke: "LightSteelBlue", strokeWidth: 5})
-    group.add(button)
-    group.add(text)
-
-    layer.add(group)
-
-
 
 
 exports.Paragraph =
@@ -561,17 +272,6 @@ class Paragraph extends Stimulus
   constructor: (spec = {}) ->
     super(spec, { content: "", x: 50, y: 50, width: 600, fill: "black", fontSize: 18, fontFamily: "Arial", lineHeight: 1, textAlign: "center", position: null} )
 
-
-
-
-exports.Page =
-class Page extends Stimulus
-  constructor: (spec={}) ->
-    super(spec, {html: "<div>HTML Page</div>"})
-    @html = @spec.html
-
-  render: (context, layer) ->
-    context.appendHtml(@html)
 
 
 

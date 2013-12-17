@@ -81,7 +81,3 @@
   })(Stimulus);
 
 }).call(this);
-
-/*
-//@ sourceMappingURL=stimresp.map
-*/

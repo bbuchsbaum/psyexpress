@@ -8,7 +8,6 @@ class Stimulus extends Module
 
   defaults: {}
 
-
   constructor: (spec={}) ->
     @spec = _.defaults(spec, @defaults)
     @spec = _.omit(@spec, (value, key) -> not value)

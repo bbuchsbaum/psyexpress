@@ -9,9 +9,11 @@
     height: 800
   });
 
+  this.Canvas = Psy.Canvas;
+
   this.context = new Psy.KineticContext(stage);
 
-  this.ClearEvent = new Psy.Event(new Psy.Clear(), new Psy.Timeout({
+  this.ClearEvent = new Psy.Event(new Canvas.Clear(), new Psy.Timeout({
     duration: 1000
   }));
 
@@ -37,7 +39,7 @@
   this.makeTrial = function(stim, resp, bg) {
     var _this = this;
     if (bg == null) {
-      bg = new Psy.Background([], "white");
+      bg = new Canvas.Background([], "white");
     }
     return function() {
       console.log("starting trial!");
@@ -50,7 +52,7 @@
   this.makeResponseTrial = function(resp, bg) {
     var _this = this;
     if (bg == null) {
-      bg = new Psy.Background([], "white");
+      bg = new Canvas.Background([], "white");
     }
     return function() {
       resp.reset();
@@ -61,7 +63,7 @@
   this.wrapEvents = function(events, bg) {
     var _this = this;
     if (bg == null) {
-      bg = new Psy.Background([], "white");
+      bg = new Canvas.Background([], "white");
     }
     return function() {
       return new Psy.Trial(events.concat(ClearEvent), {}, null, bg);
@@ -116,74 +118,74 @@
         duration: 1000
       }));
       ev3 = new Psy.Event(probeGroup, Timeout1000);
-      return new Psy.Trial([ev1, ev2, ev3, ClearEvent], {}, new Psy.Background([], fill = "white"));
+      return new Psy.Trial([ev1, ev2, ev3, ClearEvent], {}, new Canvas.Background([], fill = "white"));
     };
   };
 
   this.testSet = {
     FixationCross: {
-      "Default Fixation": makeTrial(new Psy.Kinetic.FixationCross(), SpaceOrTimeout5000),
-      "Blue Fixation": makeTrial(new Psy.Kinetic.FixationCross({
+      "Default Fixation": makeTrial(new Canvas.FixationCross(), SpaceOrTimeout5000),
+      "Blue Fixation": makeTrial(new Canvas.FixationCross({
         fill: "blue"
       }), SpaceOrTimeout5000),
-      "Fixation 200px": makeTrial(new Psy.Kinetic.FixationCross({
+      "Fixation 200px": makeTrial(new Canvas.FixationCross({
         length: 200
       }), SpaceOrTimeout5000),
-      "Fixation stroke width 20px": makeTrial(new Psy.Kinetic.FixationCross({
+      "Fixation stroke width 20px": makeTrial(new Canvas.FixationCross({
         strokeWidth: 20
       }), SpaceOrTimeout5000)
     },
     Text: {
       "Positioning with Labels": makeTrial(new Psy.Group([
-        new Psy.Kinetic.Text({
+        new Canvas.Text({
           content: "Center",
           position: "center",
           fontSize: 20
-        }), new Psy.Kinetic.Text({
+        }), new Canvas.Text({
           content: "Center Left",
           position: "center-left",
           fontSize: 20
-        }), new Psy.Kinetic.Text({
+        }), new Canvas.Text({
           content: "Center Right",
           position: "center-right",
           fontSize: 20
-        }), new Psy.Kinetic.Text({
+        }), new Canvas.Text({
           content: "Top Left",
           position: "top-left",
           fontSize: 20
-        }), new Psy.Kinetic.Text({
+        }), new Canvas.Text({
           content: "Top Right",
           position: "top-right",
           fontSize: 20
-        }), new Psy.Kinetic.Text({
+        }), new Canvas.Text({
           content: "Top Center",
           position: "top-center",
           fontSize: 20
-        }), new Psy.Kinetic.Text({
+        }), new Canvas.Text({
           content: "Bottom Left",
           position: "bottom-left",
           fontSize: 20
-        }), new Psy.Kinetic.Text({
+        }), new Canvas.Text({
           content: "Bottom Right",
           position: "bottom-right",
           fontSize: 20
-        }), new Psy.Kinetic.Text({
+        }), new Canvas.Text({
           content: "Bottom Center",
           position: "bottom-center",
           fontSize: 20
         })
       ]), SpaceKey),
-      "75 Point Font": makeTrial(new Psy.Kinetic.Text({
+      "75 Point Font": makeTrial(new Canvas.Text({
         content: "75 Point Font",
         position: "center",
         fontSize: 75
       }), SpaceKey),
-      "12 Point Font": makeTrial(new Psy.Kinetic.Text({
+      "12 Point Font": makeTrial(new Canvas.Text({
         content: "12 Point Font",
         position: "center",
         fontSize: 12
       }), SpaceKey),
-      "Paragraph": makeTrial(new Psy.Kinetic.Text({
+      "Paragraph": makeTrial(new Canvas.Text({
         content: "Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.\n        Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor\n        in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident,\n        sunt in culpa qui officia deserunt mollit anim id est laborum.",
         width: 800,
         fontSize: 24
@@ -235,62 +237,62 @@
           x: "50%",
           y: "50%",
           "class": "circular huge"
-        }), new Psy.Kinetic.FixationCross()
+        }), new Canvas.FixationCross()
       ]), SpaceKey)
     },
     HtmlRange: {
       Default: makeTrial(new Psy.HtmlRange(), SpaceKey)
     },
     Blank: {
-      "Black Background": makeTrial(new Psy.Kinetic.Blank({
+      "Black Background": makeTrial(new Canvas.Blank({
         fill: "black"
       }), SpaceOrTimeout5000),
-      "Green Background": makeTrial(new Psy.Kinetic.Blank({
+      "Green Background": makeTrial(new Canvas.Blank({
         fill: "green"
       }), SpaceOrTimeout5000),
-      "RGB (33, 55, 67)": makeTrial(new Psy.Kinetic.Blank({
+      "RGB (33, 55, 67)": makeTrial(new Canvas.Blank({
         fill: "rgb(33,55,67)"
       }), SpaceOrTimeout5000)
     },
     CanvasBorder: {
-      "Default": makeTrial(new Psy.CanvasBorder(), SpaceKey),
-      "Blue Border": makeTrial(new Psy.CanvasBorder({
+      "Default": makeTrial(new Canvas.CanvasBorder(), SpaceKey),
+      "Blue Border": makeTrial(new Canvas.CanvasBorder({
         stroke: "blue"
       }), SpaceKey),
-      "Thick Blue Border": makeTrial(new Psy.CanvasBorder({
+      "Thick Blue Border": makeTrial(new Canvas.CanvasBorder({
         stroke: "blue",
         strokeWidth: 20
       }), SpaceKey)
     },
     GridLines: {
-      "Default GridLines": makeTrial(new Psy.GridLines(), SpaceKey),
-      "5 X 5 GridLines": makeTrial(new Psy.GridLines({
+      "Default GridLines": makeTrial(new Canvas.GridLines(), SpaceKey),
+      "5 X 5 GridLines": makeTrial(new Canvas.GridLines({
         rows: 5,
         cols: 5
       }), SpaceKey),
-      "5 X 5 Dashed GridLines": makeTrial(new Psy.GridLines({
+      "5 X 5 Dashed GridLines": makeTrial(new Canvas.GridLines({
         rows: 5,
         cols: 5,
         dashArray: [10, 5]
       }), SpaceKey)
     },
     Rectangle: {
-      "Default Rect": makeTrial(new Psy.Rectangle(), SpaceKey),
-      "Green Square 500 by 500": makeTrial(new Psy.Rectangle({
+      "Default Rect": makeTrial(new Canvas.Rectangle(), SpaceKey),
+      "Green Square 500 by 500": makeTrial(new Canvas.Rectangle({
         width: 500,
         height: 500,
         fill: "green"
       }), SpaceOrTimeout5000),
-      "Green Square Blue Stroke": makeTrial(new Psy.Rectangle({
+      "Green Square Blue Stroke": makeTrial(new Canvas.Rectangle({
         width: 500,
         height: 500,
         fill: "green",
         stroke: "blue"
       }), SpaceOrTimeout5000),
-      "Default Rect, x 50%, y 50%": makeTrial(new Psy.Rectangle({
+      "Default Rect, x 50%, y 50%": makeTrial(new Canvas.Rectangle({
         position: ["50%", "50%"]
       }), SpaceKey),
-      "Default Rect, grid 3,3 [0,0]": makeTrial(new Psy.Rectangle({
+      "Default Rect, grid 3,3 [0,0]": makeTrial(new Canvas.Rectangle({
         position: [0, 0],
         layout: new Psy.GridLayout(3, 3, {
           x: 0,
@@ -299,7 +301,7 @@
           height: 800
         })
       }), SpaceKey),
-      "Default Rect, grid 3,3 [2,2]": makeTrial(new Psy.Rectangle({
+      "Default Rect, grid 3,3 [2,2]": makeTrial(new Canvas.Rectangle({
         position: [2, 2],
         layout: new Psy.GridLayout(3, 3, {
           x: 0,
@@ -310,24 +312,24 @@
       }), SpaceKey)
     },
     Circle: {
-      "Default Circle": makeTrial(new Psy.Circle(), SpaceKey),
-      "Green Circle Radius 50": makeTrial(new Psy.Circle({
+      "Default Circle": makeTrial(new Canvas.Circle(), SpaceKey),
+      "Green Circle Radius 50": makeTrial(new Canvas.Circle({
         radius: 50,
         fill: "green"
       }), SpaceOrTimeout5000),
-      "Green Circle Blue Stroke": makeTrial(new Psy.Circle({
+      "Green Circle Blue Stroke": makeTrial(new Canvas.Circle({
         radius: 50,
         fill: "green",
         stroke: "blue"
       }), SpaceOrTimeout5000)
     },
     Arrow: {
-      "Default Arrow": makeTrial(new Psy.Kinetic.Arrow(), SpaceKey),
-      "Blue Arrow, length 200": makeTrial(new Psy.Kinetic.Arrow({
+      "Default Arrow": makeTrial(new Canvas.Arrow(), SpaceKey),
+      "Blue Arrow, length 200": makeTrial(new Canvas.Arrow({
         length: 200,
         fill: "blue"
       }), SpaceKey),
-      "Blue Arrow, black stroke": makeTrial(new Psy.Kinetic.Arrow({
+      "Blue Arrow, black stroke": makeTrial(new Canvas.Arrow({
         length: 200,
         fill: "blue",
         stroke: "black",
@@ -337,7 +339,7 @@
         var _i, _results;
         _results = [];
         for (i = _i = 0; _i <= 360; i = _i += 2) {
-          _results.push(new Psy.Kinetic.Arrow({
+          _results.push(new Canvas.Arrow({
             x: 300,
             y: 300,
             length: 200,
@@ -351,7 +353,7 @@
         var _i, _results;
         _results = [];
         for (i = _i = 0; _i <= 360; i = _i += 2) {
-          _results.push(new Psy.Kinetic.Arrow({
+          _results.push(new Canvas.Arrow({
             x: 300,
             y: 300,
             length: 200,
@@ -364,21 +366,21 @@
       })(), [40], clear = false), SpaceKey)
     },
     Picture: {
-      "Default Picture": makeTrial(new Psy.Picture(), SpaceKey),
-      "Default 300 X 300": makeTrial(new Psy.Picture({
+      "Default Picture": makeTrial(new Canvas.Picture(), SpaceKey),
+      "Default 300 X 300": makeTrial(new Canvas.Picture({
         width: 300,
         height: 300
       }), SpaceKey),
       "Flicker Two Images 4Hz": makeTrial(new Psy.Sequence([
-        new Psy.Picture({
+        new Canvas.Picture({
           url: "images/Sunset.jpg"
-        }), new Psy.Picture({
+        }), new Canvas.Picture({
           url: "images/Shark.jpg"
         })
       ], [250, 250], clear = true, times = 50), SpaceKey)
     },
     StartButton: {
-      "Start Button": makeTrial(new Psy.StartButton({
+      "Start Button": makeTrial(new Canvas.StartButton({
         id: "start"
       }), new Psy.ClickResponse("start"))
     },
@@ -419,7 +421,7 @@
           title: "message 1",
           content: "This is Message 1",
           color: "blue"
-        }), new Psy.Kinetic.FixationCross()
+        }), new Canvas.FixationCross()
       ]), SpaceKey)
     },
     Instructions: {
@@ -439,34 +441,34 @@
     },
     Group: {
       "Group of Circles": makeTrial(new Psy.Group([
-        new Psy.Circle({
+        new Canvas.Circle({
           x: 100,
           y: 150,
           radius: 70
-        }), new Psy.Circle({
+        }), new Canvas.Circle({
           x: 250,
           y: 150,
           radius: 70
-        }), new Psy.Circle({
+        }), new Canvas.Circle({
           x: 400,
           y: 150,
           radius: 70
         })
       ]), SpaceKey),
       "Overlapping Circles": makeTrial(new Psy.Group([
-        new Psy.Circle({
+        new Canvas.Circle({
           x: 100,
           y: 150,
           radius: 100,
           opacity: 1,
           fill: "red"
-        }), new Psy.Circle({
+        }), new Canvas.Circle({
           x: 250,
           y: 150,
           radius: 100,
           opacity: .5,
           fill: "yellow"
-        }), new Psy.Circle({
+        }), new Canvas.Circle({
           x: 175,
           y: 250,
           radius: 100,
@@ -475,25 +477,25 @@
         })
       ]), SpaceKey),
       "Colored Squares": makeTrial(new Psy.Group([
-        new Psy.Rectangle({
+        new Canvas.Rectangle({
           x: 100,
           y: 50,
           width: 50,
           height: 50,
           fill: "red"
-        }), new Psy.Rectangle({
+        }), new Canvas.Rectangle({
           x: 250,
           y: 500,
           width: 50,
           height: 50,
           fill: "orange"
-        }), new Psy.Rectangle({
+        }), new Canvas.Rectangle({
           x: 200,
           y: 300,
           width: 50,
           height: 50,
           fill: "cyan"
-        }), new Psy.Rectangle({
+        }), new Canvas.Rectangle({
           x: 65,
           y: 250,
           width: 50,
@@ -502,22 +504,22 @@
         })
       ]), SpaceKey),
       "Colored Squares on Grid": makeTrial(new Psy.Group([
-        new Psy.Rectangle({
+        new Canvas.Rectangle({
           position: [0, 0],
           width: 50,
           height: 50,
           fill: "red"
-        }), new Psy.Rectangle({
+        }), new Canvas.Rectangle({
           position: [2, 2],
           width: 60,
           height: 60,
           fill: "orange"
-        }), new Psy.Rectangle({
+        }), new Canvas.Rectangle({
           position: [4, 4],
           width: 70,
           height: 70,
           fill: "cyan"
-        }), new Psy.Rectangle({
+        }), new Canvas.Rectangle({
           position: [6, 6],
           width: 80,
           height: 80,
@@ -528,25 +530,25 @@
     },
     Sequence: {
       "Count to Three": makeTrial(new Psy.Sequence([
-        new Psy.Kinetic.Text({
+        new Canvas.Text({
           content: "One",
           position: "center"
-        }), new Psy.Kinetic.Text({
+        }), new Canvas.Text({
           content: "Two",
           position: "center"
-        }), new Psy.Kinetic.Text({
+        }), new Canvas.Text({
           content: "Three",
           position: "center"
         })
       ], [1000, 2000, 4000]), SpaceKey),
       "Count to Three with Overlay": makeTrial(new Psy.Sequence([
-        new Psy.Kinetic.Text({
+        new Canvas.Text({
           content: "One",
           position: "center-left"
-        }), new Psy.Kinetic.Text({
+        }), new Canvas.Text({
           content: "Two",
           position: "center"
-        }), new Psy.Kinetic.Text({
+        }), new Canvas.Text({
           content: "Three",
           position: "center-right"
         })
@@ -558,7 +560,7 @@
           r = i * 4;
           g = 255 - (i * 4);
           b = i;
-          _results.push(new Psy.Kinetic.Text({
+          _results.push(new Canvas.Text({
             content: i,
             position: "center",
             fontSize: 80 + i * 2,
@@ -568,19 +570,19 @@
         return _results;
       })(), [80]), SpaceKey),
       "Repeating Squares": makeTrial(new Psy.Sequence([
-        new Psy.Rectangle({
+        new Canvas.Rectangle({
           position: [2, 2],
           width: 80,
           height: 80,
           fill: "red",
           layout: gridlayout
-        }), new Psy.Rectangle({
+        }), new Canvas.Rectangle({
           position: [2, 3],
           width: 80,
           height: 80,
           fill: "blue",
           layout: gridlayout
-        }), new Psy.Rectangle({
+        }), new Canvas.Rectangle({
           position: [2, 4],
           width: 80,
           height: 80,
@@ -591,35 +593,35 @@
     },
     Background: {
       "Background fill": wrapEvents([
-        new Psy.Event(new Psy.Kinetic.Text({
+        new Psy.Event(new Canvas.Text({
           content: "Hello,"
-        }), Timeout1000), new Psy.Event(new Psy.Kinetic.Text({
+        }), Timeout1000), new Psy.Event(new Canvas.Text({
           content: "How"
-        }), Timeout1000), new Psy.Event(new Psy.Kinetic.Text({
+        }), Timeout1000), new Psy.Event(new Canvas.Text({
           content: "are"
-        }), Timeout1000), new Psy.Event(new Psy.Kinetic.Text({
+        }), Timeout1000), new Psy.Event(new Canvas.Text({
           content: "you"
-        }), Timeout1000), new Psy.Event(new Psy.Kinetic.Text({
+        }), Timeout1000), new Psy.Event(new Canvas.Text({
           content: "Today"
         }), SpaceKey)
-      ], new Psy.Background([
-        new Psy.Kinetic.Text({
+      ], new Canvas.Background([
+        new Canvas.Text({
           content: "I am a background stimulus",
           position: "bottom-center"
         })
       ], "red"))
     },
     TextInput: {
-      "Default TextInput": makeTrial(new Psy.TextInput(), SpaceKey),
-      "Larger Text Input": makeTrial(new Psy.TextInput({
+      "Default TextInput": makeTrial(new Canvas.TextInput(), SpaceKey),
+      "Larger Text Input": makeTrial(new Canvas.TextInput({
         width: 300,
         height: 74
       }), SpaceKey),
-      "Even Larger Text Input": makeTrial(new Psy.TextInput({
+      "Even Larger Text Input": makeTrial(new Canvas.TextInput({
         width: 500,
         height: 150
       }), SpaceKey),
-      "Gigantic Text Input": makeTrial(new Psy.TextInput({
+      "Gigantic Text Input": makeTrial(new Canvas.TextInput({
         width: 800,
         height: 300
       }), SpaceKey)
@@ -634,6 +636,9 @@
     },
     DotMotion: {
       "Test": makeTrial(new Psy.RandomDotMotion(), SpaceKey)
+    },
+    Sound: {
+      Default: makeTrial(new Psy.Sound(), SpaceKey)
     }
   };
 
@@ -683,7 +688,3 @@
   });
 
 }).call(this);
-
-/*
-//@ sourceMappingURL=testItems.map
-*/

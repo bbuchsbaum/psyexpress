@@ -8,4 +8,4 @@ class Clear extends Stimulus
     context.clearContent(true)
 
 
-exports.clear = Clear
+exports.Clear = Clear

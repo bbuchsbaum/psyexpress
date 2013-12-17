@@ -133,7 +133,3 @@
   exports.positionToCoord = positionToCoord;
 
 }).call(this);
-
-/*
-//@ sourceMappingURL=layout.map
-*/

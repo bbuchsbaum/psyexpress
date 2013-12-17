@@ -203,7 +203,3 @@
   }
 
 }).call(this);
-
-/*
-//@ sourceMappingURL=runner.map
-*/

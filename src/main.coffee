@@ -7,8 +7,9 @@ samplers = require("./samplers")
 stimresp = require("./stimresp")
 layout = require("./layout")
 design = require("./design")
-kinetic = require("./components/kinetic/kinetic")
+canvas = require("./components/canvas/canvas")
 html = require("./components/html/html")
+components = require("./components/components")
 
 
 _ = require('lodash')
@@ -21,7 +22,7 @@ include = (lib) ->
 
 #libs = [Exp, Psy, Dots, utils, datatable, samplers, stimresp, layout]
 
-libs = [Exp, Psy, Dots, utils, datatable, samplers, stimresp, layout, design, kinetic, html]
+libs = [Exp, Psy, Dots, utils, datatable, samplers, stimresp, layout, design, canvas, html, components]
 
 for lib in libs
   include(lib)

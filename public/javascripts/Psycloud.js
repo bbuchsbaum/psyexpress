@@ -51,7 +51,7 @@
       };
     }();
   require.define('/main.coffee', function (module, exports, __dirname, __filename) {
-    var _, datatable, design, Dots, Exp, html, include, kinetic, layout, lib, libs, Psy, Q, samplers, stimresp, utils;
+    var _, canvas, components, datatable, design, Dots, Exp, html, include, layout, lib, libs, Psy, Q, samplers, stimresp, utils;
     Exp = require('/elements.js', module);
     Psy = require('/psycloud.js', module);
     Dots = require('/dotmotion.js', module);
@@ -61,8 +61,9 @@
     stimresp = require('/stimresp.js', module);
     layout = require('/layout.js', module);
     design = require('/design.js', module);
-    kinetic = require('/components/kinetic/kinetic.js', module);
+    canvas = require('/components/canvas/canvas.js', module);
     html = require('/components/html/html.js', module);
+    components = require('/components/components.js', module);
     _ = require('/../node_modules/lodash/dist/lodash.js', module);
     Q = require('/../node_modules/q/q.js', module);
     include = function (lib) {
@@ -85,8 +86,9 @@
       stimresp,
       layout,
       design,
-      kinetic,
-      html
+      canvas,
+      html,
+      components
     ];
     for (var i$ = 0, length$ = libs.length; i$ < length$; ++i$) {
       lib = libs[i$];
@@ -6593,7 +6595,7 @@
   });
   require.define('/elements.js', function (module, exports, __dirname, __filename) {
     (function () {
-      var AbsoluteLayout, Background, Bacon, Base, Blank, CanvasBorder, Circle, Clear, ClickResponse, Confirm, FirstResponse, GridLayout, GridLines, Group, HtmlRange, KeyPressResponse, KineticContext, KineticStimFactory, Layout, MousePressResponse, MultipleChoice, Page, Paragraph, Picture, Prompt, Psy, Q, Rectangle, Response, Sequence, Sound, SpaceKeyResponse, StartButton, Stimulus, TextInput, Timeout, TypedResponse, disableBrowserBack, doTimer, getTimestamp, input, lay, li, marked, renderable, ul, utils, _, _ref, _ref1, __hasProp = {}.hasOwnProperty, __extends = function (child, parent) {
+      var AbsoluteLayout, Background, Bacon, Base, ClickResponse, Confirm, FirstResponse, GridLayout, Group, HtmlRange, KeyPressResponse, KineticContext, KineticStimFactory, Layout, MousePressResponse, MultipleChoice, Paragraph, Prompt, Psy, Q, Response, Sequence, Sound, SpaceKeyResponse, Stimulus, Timeout, disableBrowserBack, doTimer, getTimestamp, input, lay, li, marked, renderable, ul, utils, _, _ref, _ref1, __hasProp = {}.hasOwnProperty, __extends = function (child, parent) {
           for (var key in parent) {
             if (__hasProp.call(parent, key))
               child[key] = parent[key];
@@ -6616,6 +6618,7 @@
       Base = require('/stimresp.js', module);
       Stimulus = Base.Stimulus;
       Response = Base.Response;
+      Background = require('/components/canvas/Background.js', module).Background;
       _ref = require('/../node_modules/teacup/lib/teacup.js', module), renderable = _ref.renderable, ul = _ref.ul, li = _ref.li, input = _ref.input;
       Layout = lay.Layout;
       AbsoluteLayout = lay.AbsoluteLayout;
@@ -6706,59 +6709,6 @@
         };
         return Confirm;
       }(Response);
-      exports.TypedResponse = TypedResponse = function () {
-        function TypedResponse(spec) {
-          if (spec == null) {
-            spec = {};
-          }
-          TypedResponse.__super__.constructor.call(this, spec, {
-            left: 250,
-            top: 250,
-            defaultValue: ''
-          });
-        }
-        TypedResponse.prototype.activate = function (context) {
-          var cursor, deferred, enterPressed, freeText, keyStream, text, xoffset, _this = this;
-          deferred = Q.defer();
-          enterPressed = false;
-          freeText = '____';
-          text = new fabric.Text(freeText, {
-            top: this.spec.top,
-            left: this.spec.left,
-            fontSize: 50,
-            textAlign: 'left'
-          });
-          context.canvas.add(text);
-          xoffset = text.width / 2;
-          cursor = new fabric.Line([
-            this.spec.left,
-            this.spec.top + text.height / 2,
-            this.spec.left,
-            this.spec.top - text.height / 2
-          ]);
-          context.canvas.add(cursor);
-          keyStream = context.keypressStream();
-          keyStream.takeWhile(function (x) {
-            return enterPressed === false;
-          }).onValue(function (event) {
-            var char;
-            if (event.keyCode === 13) {
-              enterPressed = true;
-              return deferred.resolve(freeText);
-            } else {
-              char = String.fromCharCode(event.keyCode);
-              freeText = freeText + char;
-              text.setText(freeText);
-              text.set({ 'left': _this.spec.left + (text.width / 2 - xoffset) });
-              console.log(text.width);
-              console.log(text.height);
-              return context.canvas.renderAll();
-            }
-          });
-          return deferred.promise;
-        };
-        return TypedResponse;
-      }();
       exports.MousePressResponse = MousePressResponse = function (_super) {
         __extends(MousePressResponse, _super);
         function MousePressResponse() {
@@ -6766,7 +6716,7 @@
         }
         MousePressResponse.prototype.activate = function (context) {
           var deferred, mouse, _this = this;
-          deferred = Q.de(fer());
+          deferred = Q.defer();
           mouse = context.mousepressStream();
           mouse.stream.take(1).onValue(function (event) {
             mouse.stop();
@@ -6886,184 +6836,6 @@
         };
         return ClickResponse;
       }(Response);
-      exports.GridLines = GridLines = function (_super) {
-        __extends(GridLines, _super);
-        function GridLines(spec) {
-          if (spec == null) {
-            spec = {};
-          }
-          GridLines.__super__.constructor.call(this, spec, {
-            x: 0,
-            y: 0,
-            rows: 3,
-            cols: 3,
-            stroke: 'black',
-            strokeWidth: 2
-          });
-        }
-        GridLines.prototype.render = function (context, layer) {
-          var i, line, x, y, _i, _j, _ref1, _ref2, _results;
-          for (i = _i = 0, _ref1 = this.spec.rows; 0 <= _ref1 ? _i <= _ref1 : _i >= _ref1; i = 0 <= _ref1 ? ++_i : --_i) {
-            y = this.spec.y + i * context.height() / this.spec.rows;
-            line = new Kinetic.Line({
-              points: [
-                this.spec.x,
-                y,
-                this.spec.x + context.width(),
-                y
-              ],
-              stroke: this.spec.stroke,
-              strokeWidth: this.spec.strokeWidth,
-              dashArray: this.spec.dashArray
-            });
-            layer.add(line);
-          }
-          _results = [];
-          for (i = _j = 0, _ref2 = this.spec.cols; 0 <= _ref2 ? _j <= _ref2 : _j >= _ref2; i = 0 <= _ref2 ? ++_j : --_j) {
-            x = this.spec.x + i * context.width() / this.spec.cols;
-            line = new Kinetic.Line({
-              points: [
-                x,
-                this.spec.y,
-                x,
-                this.spec.y + context.height()
-              ],
-              stroke: this.spec.stroke,
-              strokeWidth: this.spec.strokeWidth,
-              dashArray: this.spec.dashArray
-            });
-            _results.push(layer.add(line));
-          }
-          return _results;
-        };
-        return GridLines;
-      }(Stimulus);
-      exports.TextInput = TextInput = function (_super) {
-        __extends(TextInput, _super);
-        function TextInput(spec) {
-          if (spec == null) {
-            spec = {};
-          }
-          disableBrowserBack();
-          TextInput.__super__.constructor.call(this, spec, {
-            x: 100,
-            y: 100,
-            width: 200,
-            height: 40,
-            defaultValue: '',
-            fill: '#FAF5E6',
-            stroke: '#0099FF',
-            strokeWidth: 1,
-            content: ''
-          });
-        }
-        TextInput.prototype.getChar = function (e) {
-          if (e.keyCode !== 16) {
-            if (e.keyCode >= 65 && e.keyCode <= 90) {
-              if (e.shiftKey) {
-                return String.fromCharCode(e.keyCode);
-              } else {
-                return String.fromCharCode(e.keyCode + 32);
-              }
-            } else if (e.keyCode >= 48 && e.keyCode <= 57) {
-              return String.fromCharCode(e.keyCode);
-            } else {
-              switch (e.keyCode) {
-              case 186:
-                return ';';
-              case 187:
-                return '=';
-              case 188:
-                return ',';
-              case 189:
-                return '-';
-              default:
-                return '';
-              }
-            }
-          } else {
-            return String.fromCharCode(e.keyCode);
-          }
-        };
-        TextInput.prototype.animateCursor = function (layer, cursor) {
-          var flashTime, _this = this;
-          flashTime = 0;
-          return new Kinetic.Animation(function (frame) {
-            if (frame.time > flashTime + 500) {
-              flashTime = frame.time;
-              if (cursor.getOpacity() === 1) {
-                cursor.setOpacity(0);
-              } else {
-                cursor.setOpacity(1);
-              }
-              return layer.draw();
-            }
-          }, layer);
-        };
-        TextInput.prototype.render = function (context, layer) {
-          var cursor, cursorBlink, enterPressed, fsize, group, keyStream, text, textContent, textRect, _this = this;
-          textRect = new Kinetic.Rect({
-            x: this.spec.x,
-            y: this.spec.y,
-            width: this.spec.width,
-            height: this.spec.height,
-            fill: this.spec.fill,
-            cornerRadius: 4,
-            lineJoin: 'round',
-            stroke: this.spec.stroke,
-            strokeWidth: this.spec.strokeWidth
-          });
-          textContent = this.spec.content;
-          fsize = .85 * this.spec.height;
-          text = new Kinetic.Text({
-            text: this.spec.content,
-            x: this.spec.x + 2,
-            y: this.spec.y - 5,
-            height: this.spec.height,
-            fontSize: fsize,
-            fill: 'black',
-            padding: 10,
-            align: 'left'
-          });
-          cursor = new Kinetic.Rect({
-            x: text.getX() + text.getWidth() - 7,
-            y: this.spec.y + 5,
-            width: 1.5,
-            height: text.getHeight() - 10,
-            fill: 'black'
-          });
-          enterPressed = false;
-          keyStream = context.keydownStream();
-          keyStream.takeWhile(function (x) {
-            return enterPressed === false && !_this.stopped;
-          }).onValue(function (event) {
-            var char;
-            if (event.keyCode === 13) {
-              return enterPressed = true;
-            } else if (event.keyCode === 8) {
-              textContent = textContent.slice(0, -1);
-              text.setText(textContent);
-              cursor.setX(text.getX() + text.getWidth() - 7);
-              return layer.draw();
-            } else if (text.getWidth() > textRect.getWidth()) {
-            } else {
-              char = _this.getChar(event);
-              textContent += char;
-              text.setText(textContent);
-              cursor.setX(text.getX() + text.getWidth() - 7);
-              return layer.draw();
-            }
-          });
-          cursorBlink = this.animateCursor(layer, cursor);
-          cursorBlink.start();
-          group = new Kinetic.Group({});
-          group.add(textRect);
-          group.add(cursor);
-          group.add(text);
-          return layer.add(group);
-        };
-        return TextInput;
-      }(Stimulus);
       exports.Sound = Sound = function () {
         function Sound(url) {
           this.url = url;
@@ -7074,36 +6846,6 @@
         };
         return Sound;
       }();
-      exports.Picture = Picture = function (_super) {
-        __extends(Picture, _super);
-        function Picture(spec) {
-          var _this = this;
-          if (spec == null) {
-            spec = {};
-          }
-          Picture.__super__.constructor.call(this, spec, {
-            url: 'http://www.html5canvastutorials.com/demos/assets/yoda.jpg',
-            x: 0,
-            y: 0
-          });
-          this.imageObj = new Image;
-          this.image = null;
-          this.imageObj.onload = function () {
-            return _this.image = new Kinetic.Image({
-              x: _this.spec.x,
-              y: _this.spec.y,
-              image: _this.imageObj,
-              width: _this.spec.width || _this.imageObj.width,
-              height: _this.spec.height || _this.imageObj.height
-            });
-          };
-          this.imageObj.src = this.spec.url;
-        }
-        Picture.prototype.render = function (context, layer) {
-          return layer.add(this.image);
-        };
-        return Picture;
-      }(Stimulus);
       exports.Group = Group = function (_super) {
         __extends(Group, _super);
         function Group(stims, layout) {
@@ -7131,34 +6873,6 @@
           return _results;
         };
         return Group;
-      }(Stimulus);
-      exports.Background = Background = function (_super) {
-        __extends(Background, _super);
-        function Background(stims, fill) {
-          this.stims = stims != null ? stims : [];
-          this.fill = fill != null ? fill : 'white';
-          Background.__super__.constructor.call(this, {}, {});
-        }
-        Background.prototype.render = function (context, layer) {
-          var background, stim, _i, _len, _ref1, _results;
-          background = new Kinetic.Rect({
-            x: 0,
-            y: 0,
-            width: context.width(),
-            height: context.height(),
-            name: 'background',
-            fill: this.fill
-          });
-          layer.add(background);
-          _ref1 = this.stims;
-          _results = [];
-          for (_i = 0, _len = _ref1.length; _i < _len; _i++) {
-            stim = _ref1[_i];
-            _results.push(stim.render(context, layer));
-          }
-          return _results;
-        };
-        return Background;
       }(Stimulus);
       exports.Sequence = Sequence = function (_super) {
         __extends(Sequence, _super);
@@ -7225,179 +6939,6 @@
         };
         return Sequence;
       }(Stimulus);
-      exports.Blank = Blank = function (_super) {
-        __extends(Blank, _super);
-        function Blank(spec) {
-          if (spec == null) {
-            spec = {};
-          }
-          Blank.__super__.constructor.call(this, spec, { fill: 'white' });
-        }
-        Blank.prototype.render = function (context, layer) {
-          var blank;
-          blank = new Kinetic.Rect({
-            x: 0,
-            y: 0,
-            width: context.width(),
-            height: context.height(),
-            fill: this.spec.fill
-          });
-          return layer.add(blank);
-        };
-        return Blank;
-      }(Stimulus);
-      exports.Clear = Clear = function (_super) {
-        __extends(Clear, _super);
-        function Clear(spec) {
-          if (spec == null) {
-            spec = {};
-          }
-          Clear.__super__.constructor.call(this, spec, {});
-        }
-        Clear.prototype.render = function (context, layer) {
-          return context.clearContent(true);
-        };
-        return Clear;
-      }(Stimulus);
-      exports.Rectangle = Rectangle = function (_super) {
-        __extends(Rectangle, _super);
-        function Rectangle(spec) {
-          if (spec == null) {
-            spec = {};
-          }
-          Rectangle.__super__.constructor.call(this, spec, {
-            x: 0,
-            y: 0,
-            width: 100,
-            height: 100,
-            fill: 'red'
-          });
-          this.spec = _.omit(this.spec, function (value, key) {
-            return !value;
-          });
-          if (this.spec.layout != null) {
-            this.layout = this.spec.layout;
-          }
-        }
-        Rectangle.prototype.render = function (context, layer) {
-          var coords, rect;
-          console.log('rendering rect');
-          console.log('spec is', this.spec);
-          console.log('has computeCoordinates', this.computeCoordinates);
-          console.log('position', this.spec.position);
-          coords = this.computeCoordinates(context, this.spec.position);
-          console.log('coords', coords);
-          rect = new Kinetic.Rect({
-            x: coords[0],
-            y: coords[1],
-            width: this.spec.width,
-            height: this.spec.height,
-            fill: this.spec.fill,
-            stroke: this.spec.stroke,
-            strokeWidth: this.spec.strokeWidth
-          });
-          return layer.add(rect);
-        };
-        return Rectangle;
-      }(Stimulus);
-      exports.Circle = Circle = function (_super) {
-        __extends(Circle, _super);
-        function Circle(spec) {
-          if (spec == null) {
-            spec = {};
-          }
-          Circle.__super__.constructor.call(this, spec, {
-            x: 100,
-            y: 100,
-            radius: 50,
-            fill: 'red',
-            opacity: 1
-          });
-        }
-        Circle.prototype.render = function (context, layer) {
-          var circ;
-          circ = new Kinetic.Circle({
-            x: this.spec.x,
-            y: this.spec.y,
-            radius: this.spec.radius,
-            fill: this.spec.fill,
-            stroke: this.spec.stroke,
-            strokeWidth: this.spec.strokeWidth,
-            opacity: this.spec.opacity
-          });
-          return layer.add(circ);
-        };
-        return Circle;
-      }(Stimulus);
-      exports.CanvasBorder = CanvasBorder = function (_super) {
-        __extends(CanvasBorder, _super);
-        function CanvasBorder(spec) {
-          if (spec == null) {
-            spec = {};
-          }
-          CanvasBorder.__super__.constructor.call(this, spec, {
-            strokeWidth: 5,
-            stroke: 'black'
-          });
-        }
-        CanvasBorder.prototype.render = function (context, layer) {
-          var border;
-          border = new Kinetic.Rect({
-            x: 0,
-            y: 0,
-            width: context.width(),
-            height: context.height(),
-            strokeWidth: this.spec.strokeWidth,
-            stroke: this.spec.stroke
-          });
-          return layer.add(border);
-        };
-        return CanvasBorder;
-      }(Stimulus);
-      exports.StartButton = StartButton = function (_super) {
-        __extends(StartButton, _super);
-        function StartButton(spec) {
-          if (spec == null) {
-            spec = {};
-          }
-          StartButton.__super__.constructor.call(this, spec, {
-            width: 150,
-            height: 75
-          });
-        }
-        StartButton.prototype.render = function (context, layer) {
-          var button, group, text, xcenter, ycenter;
-          xcenter = context.width() / 2;
-          ycenter = context.height() / 2;
-          group = new Kinetic.Group({ id: this.spec.id });
-          text = new Kinetic.Text({
-            text: 'Start',
-            x: xcenter - this.spec.width / 2,
-            y: ycenter - this.spec.height / 2,
-            width: this.spec.width,
-            height: this.spec.height,
-            fontSize: 30,
-            fill: 'white',
-            fontFamily: 'Arial',
-            align: 'center',
-            padding: 20
-          });
-          button = new Kinetic.Rect({
-            x: xcenter - this.spec.width / 2,
-            y: ycenter - text.getHeight() / 2,
-            width: this.spec.width,
-            height: text.getHeight(),
-            fill: 'black',
-            cornerRadius: 10,
-            stroke: 'LightSteelBlue',
-            strokeWidth: 5
-          });
-          group.add(button);
-          group.add(text);
-          return layer.add(group);
-        };
-        return StartButton;
-      }(Stimulus);
       exports.Paragraph = Paragraph = function (_super) {
         __extends(Paragraph, _super);
         function Paragraph(spec) {
@@ -7418,20 +6959,6 @@
           });
         }
         return Paragraph;
-      }(Stimulus);
-      exports.Page = Page = function (_super) {
-        __extends(Page, _super);
-        function Page(spec) {
-          if (spec == null) {
-            spec = {};
-          }
-          Page.__super__.constructor.call(this, spec, { html: '<div>HTML Page</div>' });
-          this.html = this.spec.html;
-        }
-        Page.prototype.render = function (context, layer) {
-          return context.appendHtml(this.html);
-        };
-        return Page;
       }(Stimulus);
       exports.HtmlRange = HtmlRange = function (_super) {
         __extends(HtmlRange, _super);
@@ -12895,6 +12422,909 @@
         return Page;
       }(HtmlStimulus);
       exports.Page = Page;
+    }.call(this));
+  });
+  require.define('/components/canvas/canvas.js', function (module, exports, __dirname, __filename) {
+    (function () {
+      var Canvas;
+      Canvas = {};
+      Canvas.Arrow = require('/components/canvas/arrow.js', module).Arrow;
+      Canvas.Background = require('/components/canvas/background.js', module).Background;
+      Canvas.Blank = require('/components/canvas/blank.js', module).Blank;
+      Canvas.Circle = require('/components/canvas/circle.js', module).Circle;
+      Canvas.Clear = require('/components/canvas/clear.js', module).Clear;
+      Canvas.FixationCross = require('/components/canvas/fixationcross.js', module).FixationCross;
+      Canvas.CanvasBorder = require('/components/canvas/canvasborder.js', module).CanvasBorder;
+      Canvas.GridLines = require('/components/canvas/gridlines.js', module).GridLines;
+      Canvas.Picture = require('/components/canvas/picture.js', module).Picture;
+      Canvas.Rectangle = require('/components/canvas/rectangle.js', module).Rectangle;
+      Canvas.StartButton = require('/components/canvas/startbutton.js', module).StartButton;
+      Canvas.Text = require('/components/canvas/text.js', module).Text;
+      Canvas.TextInput = require('/components/canvas/textinput.js', module).TextInput;
+      exports.Canvas = Canvas;
+    }.call(this));
+  });
+  require.define('/components/canvas/textinput.js', function (module, exports, __dirname, __filename) {
+    (function () {
+      var Stimulus, TextInput, utils, __hasProp = {}.hasOwnProperty, __extends = function (child, parent) {
+          for (var key in parent) {
+            if (__hasProp.call(parent, key))
+              child[key] = parent[key];
+          }
+          function ctor() {
+            this.constructor = child;
+          }
+          ctor.prototype = parent.prototype;
+          child.prototype = new ctor;
+          child.__super__ = parent.prototype;
+          return child;
+        };
+      Stimulus = require('/stimresp.js', module).Stimulus;
+      utils = require('/utils.js', module);
+      TextInput = function (_super) {
+        __extends(TextInput, _super);
+        TextInput.prototype.defaults = {
+          x: 100,
+          y: 100,
+          width: 200,
+          height: 40,
+          defaultValue: '',
+          fill: '#FAF5E6',
+          stroke: '#0099FF',
+          strokeWidth: 1,
+          content: ''
+        };
+        function TextInput(spec) {
+          if (spec == null) {
+            spec = {};
+          }
+          TextInput.__super__.constructor.call(this, spec);
+          utils.disableBrowserBack();
+        }
+        TextInput.prototype.getChar = function (e) {
+          if (e.keyCode !== 16) {
+            if (e.keyCode >= 65 && e.keyCode <= 90) {
+              if (e.shiftKey) {
+                return String.fromCharCode(e.keyCode);
+              } else {
+                return String.fromCharCode(e.keyCode + 32);
+              }
+            } else if (e.keyCode >= 48 && e.keyCode <= 57) {
+              return String.fromCharCode(e.keyCode);
+            } else {
+              switch (e.keyCode) {
+              case 186:
+                return ';';
+              case 187:
+                return '=';
+              case 188:
+                return ',';
+              case 189:
+                return '-';
+              default:
+                return '';
+              }
+            }
+          } else {
+            return String.fromCharCode(e.keyCode);
+          }
+        };
+        TextInput.prototype.animateCursor = function (layer, cursor) {
+          var flashTime, _this = this;
+          flashTime = 0;
+          return new Kinetic.Animation(function (frame) {
+            if (frame.time > flashTime + 500) {
+              flashTime = frame.time;
+              if (cursor.getOpacity() === 1) {
+                cursor.setOpacity(0);
+              } else {
+                cursor.setOpacity(1);
+              }
+              return layer.draw();
+            }
+          }, layer);
+        };
+        TextInput.prototype.render = function (context, layer) {
+          var cursor, cursorBlink, enterPressed, fsize, group, keyStream, text, textContent, textRect, _this = this;
+          textRect = new Kinetic.Rect({
+            x: this.spec.x,
+            y: this.spec.y,
+            width: this.spec.width,
+            height: this.spec.height,
+            fill: this.spec.fill,
+            cornerRadius: 4,
+            lineJoin: 'round',
+            stroke: this.spec.stroke,
+            strokeWidth: this.spec.strokeWidth
+          });
+          textContent = this.spec.content;
+          fsize = .85 * this.spec.height;
+          text = new Kinetic.Text({
+            text: this.spec.content,
+            x: this.spec.x + 2,
+            y: this.spec.y - 5,
+            height: this.spec.height,
+            fontSize: fsize,
+            fill: 'black',
+            padding: 10,
+            align: 'left'
+          });
+          cursor = new Kinetic.Rect({
+            x: text.getX() + text.getWidth() - 7,
+            y: this.spec.y + 5,
+            width: 1.5,
+            height: text.getHeight() - 10,
+            fill: 'black'
+          });
+          enterPressed = false;
+          keyStream = context.keydownStream();
+          keyStream.takeWhile(function (x) {
+            return enterPressed === false && !_this.stopped;
+          }).onValue(function (event) {
+            var char;
+            if (event.keyCode === 13) {
+              return enterPressed = true;
+            } else if (event.keyCode === 8) {
+              textContent = textContent.slice(0, -1);
+              text.setText(textContent);
+              cursor.setX(text.getX() + text.getWidth() - 7);
+              return layer.draw();
+            } else if (text.getWidth() > textRect.getWidth()) {
+            } else {
+              char = _this.getChar(event);
+              textContent += char;
+              text.setText(textContent);
+              cursor.setX(text.getX() + text.getWidth() - 7);
+              return layer.draw();
+            }
+          });
+          cursorBlink = this.animateCursor(layer, cursor);
+          cursorBlink.start();
+          group = new Kinetic.Group({});
+          group.add(textRect);
+          group.add(cursor);
+          group.add(text);
+          return layer.add(group);
+        };
+        return TextInput;
+      }(Stimulus);
+      exports.TextInput = TextInput;
+    }.call(this));
+  });
+  require.define('/components/canvas/text.js', function (module, exports, __dirname, __filename) {
+    (function () {
+      var Stimulus, Text, layout, __hasProp = {}.hasOwnProperty, __extends = function (child, parent) {
+          for (var key in parent) {
+            if (__hasProp.call(parent, key))
+              child[key] = parent[key];
+          }
+          function ctor() {
+            this.constructor = child;
+          }
+          ctor.prototype = parent.prototype;
+          child.prototype = new ctor;
+          child.__super__ = parent.prototype;
+          return child;
+        };
+      Stimulus = require('/stimresp.js', module).Stimulus;
+      layout = require('/layout.js', module);
+      Text = function (_super) {
+        __extends(Text, _super);
+        Text.prototype.defaults = {
+          content: 'Text',
+          x: 5,
+          y: 5,
+          width: null,
+          fill: 'black',
+          fontSize: 40,
+          fontFamily: 'Arial',
+          lineHeight: 2,
+          textAlign: 'center',
+          position: null
+        };
+        function Text(spec) {
+          if (spec == null) {
+            spec = {};
+          }
+          Text.__super__.constructor.call(this, spec);
+          if (_.isArray(this.spec.content)) {
+            this.spec.content = this.spec.content.join('\n');
+          }
+        }
+        Text.prototype.render = function (context, layer) {
+          var text, xy;
+          text = new Kinetic.Text({
+            x: this.spec.x,
+            y: this.spec.y,
+            text: this.spec.content,
+            fontSize: this.spec.fontSize,
+            fontFamily: this.spec.fontFamily,
+            fill: this.spec.fill,
+            lineHeight: this.spec.lineHeight,
+            width: this.spec.width || context.width(),
+            listening: false,
+            align: this.spec.textAlign
+          });
+          if (this.spec.position) {
+            xy = layout.positionToCoord(this.spec.position, -text.getWidth() / 2, -text.getHeight() / 2, context.width(), context.height(), [
+              this.spec.x,
+              this.spec.y
+            ]);
+            text.setPosition({
+              x: xy[0],
+              y: xy[1]
+            });
+          }
+          return layer.add(text);
+        };
+        return Text;
+      }(Stimulus);
+      exports.Text = Text;
+    }.call(this));
+  });
+  require.define('/components/canvas/startbutton.js', function (module, exports, __dirname, __filename) {
+    (function () {
+      var StartButton, Stimulus, _ref, __hasProp = {}.hasOwnProperty, __extends = function (child, parent) {
+          for (var key in parent) {
+            if (__hasProp.call(parent, key))
+              child[key] = parent[key];
+          }
+          function ctor() {
+            this.constructor = child;
+          }
+          ctor.prototype = parent.prototype;
+          child.prototype = new ctor;
+          child.__super__ = parent.prototype;
+          return child;
+        };
+      Stimulus = require('/stimresp.js', module).Stimulus;
+      StartButton = function (_super) {
+        __extends(StartButton, _super);
+        function StartButton() {
+          _ref = StartButton.__super__.constructor.apply(this, arguments);
+          return _ref;
+        }
+        StartButton.prototype.defaults = {
+          width: 150,
+          height: 75
+        };
+        StartButton.prototype.render = function (context, layer) {
+          var button, group, text, xcenter, ycenter;
+          xcenter = context.width() / 2;
+          ycenter = context.height() / 2;
+          group = new Kinetic.Group({ id: this.spec.id });
+          text = new Kinetic.Text({
+            text: 'Start',
+            x: xcenter - this.spec.width / 2,
+            y: ycenter - this.spec.height / 2,
+            width: this.spec.width,
+            height: this.spec.height,
+            fontSize: 30,
+            fill: 'white',
+            fontFamily: 'Arial',
+            align: 'center',
+            padding: 20
+          });
+          button = new Kinetic.Rect({
+            x: xcenter - this.spec.width / 2,
+            y: ycenter - text.getHeight() / 2,
+            width: this.spec.width,
+            height: text.getHeight(),
+            fill: 'black',
+            cornerRadius: 10,
+            stroke: 'LightSteelBlue',
+            strokeWidth: 5
+          });
+          group.add(button);
+          group.add(text);
+          return layer.add(group);
+        };
+        return StartButton;
+      }(Stimulus);
+      exports.StartButton = StartButton;
+    }.call(this));
+  });
+  require.define('/components/canvas/rectangle.js', function (module, exports, __dirname, __filename) {
+    (function () {
+      var Rectangle, Stimulus, __hasProp = {}.hasOwnProperty, __extends = function (child, parent) {
+          for (var key in parent) {
+            if (__hasProp.call(parent, key))
+              child[key] = parent[key];
+          }
+          function ctor() {
+            this.constructor = child;
+          }
+          ctor.prototype = parent.prototype;
+          child.prototype = new ctor;
+          child.__super__ = parent.prototype;
+          return child;
+        };
+      Stimulus = require('/stimresp.js', module).Stimulus;
+      Rectangle = function (_super) {
+        __extends(Rectangle, _super);
+        Rectangle.prototype.defaults = {
+          x: 0,
+          y: 0,
+          width: 100,
+          height: 100,
+          fill: 'red'
+        };
+        function Rectangle(spec) {
+          if (spec == null) {
+            spec = {};
+          }
+          Rectangle.__super__.constructor.call(this, spec, {
+            x: 0,
+            y: 0,
+            width: 100,
+            height: 100,
+            fill: 'red'
+          });
+          if (this.spec.layout != null) {
+            this.layout = this.spec.layout;
+          }
+        }
+        Rectangle.prototype.render = function (context, layer) {
+          var coords, rect;
+          coords = this.computeCoordinates(context, this.spec.position);
+          rect = new Kinetic.Rect({
+            x: coords[0],
+            y: coords[1],
+            width: this.spec.width,
+            height: this.spec.height,
+            fill: this.spec.fill,
+            stroke: this.spec.stroke,
+            strokeWidth: this.spec.strokeWidth
+          });
+          return layer.add(rect);
+        };
+        return Rectangle;
+      }(Stimulus);
+      exports.Rectangle = Rectangle;
+    }.call(this));
+  });
+  require.define('/components/canvas/picture.js', function (module, exports, __dirname, __filename) {
+    (function () {
+      var Picture, Stimulus, __hasProp = {}.hasOwnProperty, __extends = function (child, parent) {
+          for (var key in parent) {
+            if (__hasProp.call(parent, key))
+              child[key] = parent[key];
+          }
+          function ctor() {
+            this.constructor = child;
+          }
+          ctor.prototype = parent.prototype;
+          child.prototype = new ctor;
+          child.__super__ = parent.prototype;
+          return child;
+        };
+      Stimulus = require('/stimresp.js', module).Stimulus;
+      Picture = function (_super) {
+        __extends(Picture, _super);
+        Picture.prototype.defaults = {
+          url: 'http://www.html5canvastutorials.com/demos/assets/yoda.jpg',
+          x: 0,
+          y: 0
+        };
+        function Picture(spec) {
+          var _this = this;
+          if (spec == null) {
+            spec = {};
+          }
+          Picture.__super__.constructor.call(this, spec);
+          this.imageObj = new Image;
+          this.image = null;
+          this.imageObj.onload = function () {
+            return _this.image = new Kinetic.Image({
+              x: _this.spec.x,
+              y: _this.spec.y,
+              image: _this.imageObj,
+              width: _this.spec.width || _this.imageObj.width,
+              height: _this.spec.height || _this.imageObj.height
+            });
+          };
+          this.imageObj.src = this.spec.url;
+        }
+        Picture.prototype.render = function (context, layer) {
+          return layer.add(this.image);
+        };
+        return Picture;
+      }(Stimulus);
+      exports.Picture = Picture;
+    }.call(this));
+  });
+  require.define('/components/canvas/gridlines.js', function (module, exports, __dirname, __filename) {
+    (function () {
+      var GridLines, Stimulus, _ref, __hasProp = {}.hasOwnProperty, __extends = function (child, parent) {
+          for (var key in parent) {
+            if (__hasProp.call(parent, key))
+              child[key] = parent[key];
+          }
+          function ctor() {
+            this.constructor = child;
+          }
+          ctor.prototype = parent.prototype;
+          child.prototype = new ctor;
+          child.__super__ = parent.prototype;
+          return child;
+        };
+      Stimulus = require('/stimresp.js', module).Stimulus;
+      GridLines = function (_super) {
+        __extends(GridLines, _super);
+        function GridLines() {
+          _ref = GridLines.__super__.constructor.apply(this, arguments);
+          return _ref;
+        }
+        GridLines.prototype.defaults = {
+          x: 0,
+          y: 0,
+          rows: 3,
+          cols: 3,
+          stroke: 'black',
+          strokeWidth: 2
+        };
+        GridLines.prototype.render = function (context, layer) {
+          var i, line, x, y, _i, _j, _ref1, _ref2, _results;
+          for (i = _i = 0, _ref1 = this.spec.rows; 0 <= _ref1 ? _i <= _ref1 : _i >= _ref1; i = 0 <= _ref1 ? ++_i : --_i) {
+            y = this.spec.y + i * context.height() / this.spec.rows;
+            line = new Kinetic.Line({
+              points: [
+                this.spec.x,
+                y,
+                this.spec.x + context.width(),
+                y
+              ],
+              stroke: this.spec.stroke,
+              strokeWidth: this.spec.strokeWidth,
+              dashArray: this.spec.dashArray
+            });
+            layer.add(line);
+          }
+          _results = [];
+          for (i = _j = 0, _ref2 = this.spec.cols; 0 <= _ref2 ? _j <= _ref2 : _j >= _ref2; i = 0 <= _ref2 ? ++_j : --_j) {
+            x = this.spec.x + i * context.width() / this.spec.cols;
+            line = new Kinetic.Line({
+              points: [
+                x,
+                this.spec.y,
+                x,
+                this.spec.y + context.height()
+              ],
+              stroke: this.spec.stroke,
+              strokeWidth: this.spec.strokeWidth,
+              dashArray: this.spec.dashArray
+            });
+            _results.push(layer.add(line));
+          }
+          return _results;
+        };
+        return GridLines;
+      }(Stimulus);
+      exports.GridLines = GridLines;
+    }.call(this));
+  });
+  require.define('/components/canvas/canvasborder.js', function (module, exports, __dirname, __filename) {
+    (function () {
+      var CanvasBorder, Stimulus, _ref, __hasProp = {}.hasOwnProperty, __extends = function (child, parent) {
+          for (var key in parent) {
+            if (__hasProp.call(parent, key))
+              child[key] = parent[key];
+          }
+          function ctor() {
+            this.constructor = child;
+          }
+          ctor.prototype = parent.prototype;
+          child.prototype = new ctor;
+          child.__super__ = parent.prototype;
+          return child;
+        };
+      Stimulus = require('/stimresp.js', module).Stimulus;
+      CanvasBorder = function (_super) {
+        __extends(CanvasBorder, _super);
+        function CanvasBorder() {
+          _ref = CanvasBorder.__super__.constructor.apply(this, arguments);
+          return _ref;
+        }
+        CanvasBorder.prototype.defaults = {
+          strokeWidth: 5,
+          stroke: 'black'
+        };
+        CanvasBorder.prototype.render = function (context, layer) {
+          var border;
+          border = new Kinetic.Rect({
+            x: 0,
+            y: 0,
+            width: context.width(),
+            height: context.height(),
+            strokeWidth: this.spec.strokeWidth,
+            stroke: this.spec.stroke
+          });
+          return layer.add(border);
+        };
+        return CanvasBorder;
+      }(Stimulus);
+      exports.CanvasBorder = CanvasBorder;
+    }.call(this));
+  });
+  require.define('/components/canvas/fixationcross.js', function (module, exports, __dirname, __filename) {
+    (function () {
+      var FixationCross, Stimulus, _ref, __hasProp = {}.hasOwnProperty, __extends = function (child, parent) {
+          for (var key in parent) {
+            if (__hasProp.call(parent, key))
+              child[key] = parent[key];
+          }
+          function ctor() {
+            this.constructor = child;
+          }
+          ctor.prototype = parent.prototype;
+          child.prototype = new ctor;
+          child.__super__ = parent.prototype;
+          return child;
+        };
+      Stimulus = require('/stimresp.js', module).Stimulus;
+      FixationCross = function (_super) {
+        __extends(FixationCross, _super);
+        function FixationCross() {
+          _ref = FixationCross.__super__.constructor.apply(this, arguments);
+          return _ref;
+        }
+        FixationCross.prototype.defaults = {
+          strokeWidth: 8,
+          length: 150,
+          fill: 'black'
+        };
+        FixationCross.prototype.render = function (context, layer) {
+          var group, horz, vert, x, y;
+          x = context.width() / 2;
+          y = context.height() / 2;
+          horz = new Kinetic.Rect({
+            x: x - this.spec.length / 2,
+            y: y,
+            width: this.spec.length,
+            height: this.spec.strokeWidth,
+            fill: this.spec.fill
+          });
+          vert = new Kinetic.Rect({
+            x: x - this.spec.strokeWidth / 2,
+            y: y - this.spec.length / 2 + this.spec.strokeWidth / 2,
+            width: this.spec.strokeWidth,
+            height: this.spec.length,
+            fill: this.spec.fill
+          });
+          group = new Kinetic.Group;
+          group.add(horz);
+          group.add(vert);
+          return layer.add(group);
+        };
+        return FixationCross;
+      }(Stimulus);
+      exports.FixationCross = FixationCross;
+    }.call(this));
+  });
+  require.define('/components/canvas/clear.js', function (module, exports, __dirname, __filename) {
+    (function () {
+      var Clear, Stimulus, _ref, __hasProp = {}.hasOwnProperty, __extends = function (child, parent) {
+          for (var key in parent) {
+            if (__hasProp.call(parent, key))
+              child[key] = parent[key];
+          }
+          function ctor() {
+            this.constructor = child;
+          }
+          ctor.prototype = parent.prototype;
+          child.prototype = new ctor;
+          child.__super__ = parent.prototype;
+          return child;
+        };
+      Stimulus = require('/stimresp.js', module).Stimulus;
+      Clear = function (_super) {
+        __extends(Clear, _super);
+        function Clear() {
+          _ref = Clear.__super__.constructor.apply(this, arguments);
+          return _ref;
+        }
+        Clear.prototype.render = function (context, layer) {
+          return context.clearContent(true);
+        };
+        return Clear;
+      }(Stimulus);
+      exports.Clear = Clear;
+    }.call(this));
+  });
+  require.define('/components/canvas/circle.js', function (module, exports, __dirname, __filename) {
+    (function () {
+      var Circle, Stimulus, _ref, __hasProp = {}.hasOwnProperty, __extends = function (child, parent) {
+          for (var key in parent) {
+            if (__hasProp.call(parent, key))
+              child[key] = parent[key];
+          }
+          function ctor() {
+            this.constructor = child;
+          }
+          ctor.prototype = parent.prototype;
+          child.prototype = new ctor;
+          child.__super__ = parent.prototype;
+          return child;
+        };
+      Stimulus = require('/stimresp.js', module).Stimulus;
+      Circle = function (_super) {
+        __extends(Circle, _super);
+        function Circle() {
+          _ref = Circle.__super__.constructor.apply(this, arguments);
+          return _ref;
+        }
+        Circle.prototype.defaults = {
+          x: 100,
+          y: 100,
+          radius: 50,
+          fill: 'red',
+          opacity: 1
+        };
+        Circle.prototype.render = function (context, layer) {
+          var circ;
+          circ = new Kinetic.Circle({
+            x: this.spec.x,
+            y: this.spec.y,
+            radius: this.spec.radius,
+            fill: this.spec.fill,
+            stroke: this.spec.stroke,
+            strokeWidth: this.spec.strokeWidth,
+            opacity: this.spec.opacity
+          });
+          return layer.add(circ);
+        };
+        return Circle;
+      }(Stimulus);
+      exports.Circle = Circle;
+    }.call(this));
+  });
+  require.define('/components/canvas/blank.js', function (module, exports, __dirname, __filename) {
+    (function () {
+      var Blank, Stimulus, _, _ref, __hasProp = {}.hasOwnProperty, __extends = function (child, parent) {
+          for (var key in parent) {
+            if (__hasProp.call(parent, key))
+              child[key] = parent[key];
+          }
+          function ctor() {
+            this.constructor = child;
+          }
+          ctor.prototype = parent.prototype;
+          child.prototype = new ctor;
+          child.__super__ = parent.prototype;
+          return child;
+        };
+      _ = require('/../node_modules/lodash/dist/lodash.js', module);
+      Stimulus = require('/stimresp.js', module).Stimulus;
+      Blank = function (_super) {
+        __extends(Blank, _super);
+        function Blank() {
+          _ref = Blank.__super__.constructor.apply(this, arguments);
+          return _ref;
+        }
+        Blank.prototype.defaults = { fill: 'white' };
+        Blank.prototype.render = function (context, layer) {
+          var blank;
+          blank = new Kinetic.Rect({
+            x: 0,
+            y: 0,
+            width: context.width(),
+            height: context.height(),
+            fill: this.spec.fill
+          });
+          return layer.add(blank);
+        };
+        return Blank;
+      }(Stimulus);
+      exports.Blank = Blank;
+    }.call(this));
+  });
+  require.define('/components/canvas/arrow.js', function (module, exports, __dirname, __filename) {
+    (function () {
+      var Arrow, Stimulus, _ref, __hasProp = {}.hasOwnProperty, __extends = function (child, parent) {
+          for (var key in parent) {
+            if (__hasProp.call(parent, key))
+              child[key] = parent[key];
+          }
+          function ctor() {
+            this.constructor = child;
+          }
+          ctor.prototype = parent.prototype;
+          child.prototype = new ctor;
+          child.__super__ = parent.prototype;
+          return child;
+        };
+      Stimulus = require('/stimresp.js', module).Stimulus;
+      Arrow = function (_super) {
+        __extends(Arrow, _super);
+        function Arrow() {
+          _ref = Arrow.__super__.constructor.apply(this, arguments);
+          return _ref;
+        }
+        Arrow.prototype.defaults = {
+          x: 100,
+          y: 100,
+          length: 100,
+          angle: 0,
+          thickness: 40,
+          fill: 'red',
+          arrowSize: 50
+        };
+        Arrow.prototype.render = function (context, layer) {
+          var group, rect, triangle, _this;
+          rect = new Kinetic.Rect({
+            x: 0,
+            y: 0,
+            width: this.spec.length,
+            height: this.spec.thickness,
+            fill: this.spec.fill,
+            stroke: this.spec.stroke,
+            strokeWidth: this.spec.strokeWidth,
+            opacity: this.spec.opacity
+          });
+          _this = this;
+          triangle = new Kinetic.Shape({
+            drawFunc: function (cx) {
+              cx.beginPath();
+              cx.moveTo(_this.spec.length, -_this.spec.arrowSize / 2);
+              cx.lineTo(_this.spec.length + _this.spec.arrowSize, _this.spec.thickness / 2);
+              cx.lineTo(_this.spec.length, _this.spec.thickness + _this.spec.arrowSize / 2);
+              cx.closePath();
+              return cx.fillStrokeShape(this);
+            },
+            fill: _this.spec.fill,
+            stroke: this.spec.stroke,
+            strokeWidth: this.spec.strokeWidth,
+            opacity: this.spec.opacity
+          });
+          group = new Kinetic.Group({
+            x: this.spec.x,
+            y: this.spec.y,
+            rotationDeg: this.spec.angle,
+            offset: [
+              0,
+              this.spec.thickness / 2
+            ]
+          });
+          group.add(rect);
+          group.add(triangle);
+          return layer.add(group);
+        };
+        return Arrow;
+      }(Stimulus);
+      exports.Arrow = Arrow;
+    }.call(this));
+  });
+  require.define('/components/canvas/background.js', function (module, exports, __dirname, __filename) {
+    (function () {
+      var Background, Stimulus, __hasProp = {}.hasOwnProperty, __extends = function (child, parent) {
+          for (var key in parent) {
+            if (__hasProp.call(parent, key))
+              child[key] = parent[key];
+          }
+          function ctor() {
+            this.constructor = child;
+          }
+          ctor.prototype = parent.prototype;
+          child.prototype = new ctor;
+          child.__super__ = parent.prototype;
+          return child;
+        };
+      Stimulus = require('/stimresp.js', module).Stimulus;
+      Background = function (_super) {
+        __extends(Background, _super);
+        function Background(stims, fill) {
+          this.stims = stims != null ? stims : [];
+          this.fill = fill != null ? fill : 'white';
+          Background.__super__.constructor.call(this, {}, {});
+        }
+        Background.prototype.render = function (context, layer) {
+          var background, stim, _i, _len, _ref, _results;
+          background = new Kinetic.Rect({
+            x: 0,
+            y: 0,
+            width: context.width(),
+            height: context.height(),
+            name: 'background',
+            fill: this.fill
+          });
+          layer.add(background);
+          _ref = this.stims;
+          _results = [];
+          for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+            stim = _ref[_i];
+            _results.push(stim.render(context, layer));
+          }
+          return _results;
+        };
+        return Background;
+      }(Stimulus);
+      exports.Background = Background;
+    }.call(this));
+  });
+  require.define('/components/components.js', function (module, exports, __dirname, __filename) {
+    (function () {
+      exports.Sound = require('/components/sound.js', module).Sound;
+    }.call(this));
+  });
+  require.define('/components/sound.js', function (module, exports, __dirname, __filename) {
+    (function () {
+      var Sound, Stimulus, __hasProp = {}.hasOwnProperty, __extends = function (child, parent) {
+          for (var key in parent) {
+            if (__hasProp.call(parent, key))
+              child[key] = parent[key];
+          }
+          function ctor() {
+            this.constructor = child;
+          }
+          ctor.prototype = parent.prototype;
+          child.prototype = new ctor;
+          child.__super__ = parent.prototype;
+          return child;
+        };
+      Stimulus = require('/stimresp.js', module).Stimulus;
+      Sound = function (_super) {
+        __extends(Sound, _super);
+        Sound.prototype.defaults = { url: 'http://www.centraloutdoors.com/mp3/sheep/sheep.wav' };
+        function Sound(spec) {
+          if (spec == null) {
+            spec = {};
+          }
+          Sound.__super__.constructor.call(this, spec);
+          this.sound = new buzz.sound(this.spec.url);
+        }
+        Sound.prototype.render = function (context, layer) {
+          return this.sound.play();
+        };
+        return Sound;
+      }(Stimulus);
+      exports.Sound = Sound;
+    }.call(this));
+  });
+  require.define('/components/canvas/Background.js', function (module, exports, __dirname, __filename) {
+    (function () {
+      var Background, Stimulus, __hasProp = {}.hasOwnProperty, __extends = function (child, parent) {
+          for (var key in parent) {
+            if (__hasProp.call(parent, key))
+              child[key] = parent[key];
+          }
+          function ctor() {
+            this.constructor = child;
+          }
+          ctor.prototype = parent.prototype;
+          child.prototype = new ctor;
+          child.__super__ = parent.prototype;
+          return child;
+        };
+      Stimulus = require('/stimresp.js', module).Stimulus;
+      Background = function (_super) {
+        __extends(Background, _super);
+        function Background(stims, fill) {
+          this.stims = stims != null ? stims : [];
+          this.fill = fill != null ? fill : 'white';
+          Background.__super__.constructor.call(this, {}, {});
+        }
+        Background.prototype.render = function (context, layer) {
+          var background, stim, _i, _len, _ref, _results;
+          background = new Kinetic.Rect({
+            x: 0,
+            y: 0,
+            width: context.width(),
+            height: context.height(),
+            name: 'background',
+            fill: this.fill
+          });
+          layer.add(background);
+          _ref = this.stims;
+          _results = [];
+          for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+            stim = _ref[_i];
+            _results.push(stim.render(context, layer));
+          }
+          return _results;
+        };
+        return Background;
+      }(Stimulus);
+      exports.Background = Background;
     }.call(this));
   });
   global.Psy = require('/main.coffee');
