@@ -62,7 +62,8 @@
 .markdown ul,
 .markdown ol {
   padding: 0;
-  margin: 0;
+  /*margin: 0;*/
+  margin-left: 24px;
 }
 .markdown li {
   line-height: 24px;

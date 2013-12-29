@@ -13,6 +13,12 @@
   exports.Stimulus = Stimulus = (function(_super) {
     __extends(Stimulus, _super);
 
+    Stimulus.prototype.base = {
+      x: 0,
+      y: 0,
+      origin: "top-left"
+    };
+
     Stimulus.prototype.defaults = {};
 
     function Stimulus(spec) {
@@ -21,8 +27,9 @@
         spec = {};
       }
       this.spec = _.defaults(spec, this.defaults);
+      this.spec = _.defaults(spec, this.base);
       this.spec = _.omit(this.spec, function(value, key) {
-        return !value;
+        return value == null;
       });
       this.name = this.constructor.name;
       if (((_ref = this.spec) != null ? _ref.id : void 0) != null) {
@@ -31,21 +38,61 @@
         this.id = _.uniqueId("stim_");
       }
       this.stopped = false;
-      this.layout = new lay.AbsoluteLayout();
+      if (this.spec.layout != null) {
+        this.layout = this.spec.layout;
+      } else {
+        this.layout = new lay.AbsoluteLayout();
+      }
       this.overlay = false;
       this.name = this.constructor.name;
     }
 
-    Stimulus.prototype.computeCoordinates = function(context, position) {
-      var cpos;
-      if (position) {
-        cpos = this.layout.computePosition([context.width(), context.height()], position);
-        return cpos;
-      } else if (this.spec.x && this.spec.y) {
-        return [this.spec.x, this.spec.y];
-      } else {
-        return [0, 0];
+    Stimulus.prototype.xyoffset = function(origin, nodeWidth, nodeHeight) {
+      console.log("origin:", origin);
+      console.log("node width:", nodeWidth);
+      console.log("node height:", nodeHeight);
+      switch (origin) {
+        case "center":
+          return [-nodeWidth / 2, -nodeHeight / 2];
+        case "center-left" || "left-center":
+          return [0, -nodeHeight / 2];
+        case "center-right" || "right-center":
+          return [-nodeWidth, -nodeHeight / 2];
+        case "top-left" || "left-top":
+          return [0, 0];
+        case "top-right" || "right-top":
+          return [-nodeWidth, 0];
+        case "top-center" || "center-top":
+          return [-nodeWidth / 2, 0];
+        case "bottom-left" || "left-bottom":
+          return [0, -nodeHeight];
+        case "bottom-right" || "right-bottom":
+          return [-nodeWidth, -nodeHeight];
+        case "bottom-center" || "center-bottom":
+          return [-nodeWidth / 2, -nodeHeight];
       }
+    };
+
+    Stimulus.prototype.computeCoordinates = function(context, position, nodeWidth, nodeHeight) {
+      var xy, xyoff;
+      if (nodeWidth == null) {
+        nodeWidth = 0;
+      }
+      if (nodeHeight == null) {
+        nodeHeight = 0;
+      }
+      console.log("origin is ", this.spec.origin);
+      xy = position ? (console.log("position label is ", position), this.layout.computePosition([context.width(), context.height()], position)) : this.spec.x && this.spec.y ? [this.spec.x, this.spec.y] : [0, 0];
+      if (this.spec.origin != null) {
+        xyoff = this.xyoffset(this.spec.origin, nodeWidth, nodeHeight);
+        console.log("offset", xyoff);
+        console.log("xy", xy);
+        console.log("xy[0] + xyoff[0] = ", xy[0] + xyoff[0]);
+        xy[0] = xy[0] + xyoff[0];
+        xy[1] = xy[1] + xyoff[1];
+        console.log("xyfinal", xy);
+      }
+      return xy;
     };
 
     Stimulus.prototype.reset = function() {

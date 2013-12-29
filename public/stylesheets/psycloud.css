@@ -1,0 +1,21 @@
+#container {
+    width: 800px;
+    height: 700px;
+    background-color: lightblue;
+    position: relative;
+    margin: 0 auto;
+}
+
+#htmlcontainer {
+    width: 800px;
+    height: 700px;
+    position: absolute;
+    margin: 0 auto;
+    z-index: 999;
+    /*background-color: white;*/
+    border: 0;
+}
+
+div:focus{
+    outline:none;
+}

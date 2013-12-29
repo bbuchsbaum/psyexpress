@@ -8,6 +8,7 @@ class GridLines extends Stimulus
 
 
   render: (context, layer) ->
+
     for i in [0..@spec.rows]
       y = @spec.y + (i * context.height() / @spec.rows)
       line = new Kinetic.Line({

@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>
+        Psycloud Demo
+    </title>
+    <script type="text/javascript" src="../../javascripts/kinetic-v4.7.1.js"></script>
+    <script type="text/javascript" src="../../javascripts/jquery-1.7.min.js"></script>
+    <script type="text/javascript" src="../../javascripts/buzz.js"></script>
+    <script type="text/javascript" src="../../javascripts/lodash.js"></script>
+    <script type="text/javascript" src="../../javascripts/vex.combined.min.js"></script>
+    <script type="text/javascript" src="../../javascripts/checkbox.js"></script>
+
+
+    <link href="../../stylesheets/vex.css" rel="stylesheet"  />
+    <link href="../../stylesheets/vex-theme-wireframe.css" rel="stylesheet" />
+    <link href="../../stylesheets/bootstrap.css" rel="stylesheet" media="screen">
+    <link href="../../stylesheets/button.css" rel="stylesheet" media="screen">
+    <link href="../../stylesheets/segment.css" rel="stylesheet" media="screen">
+    <link href="../../stylesheets/icon.css" rel="stylesheet" media="screen">
+    <link href="../../stylesheets/menu.css" rel="stylesheet" media="screen">
+    <link href="../../stylesheets/grid.css" rel="stylesheet" media="screen">
+    <link href="../../stylesheets/form.css" rel="stylesheet" media="screen">
+    <link href="../../stylesheets/checkbox.css" rel="stylesheet" media="screen">
+
+    <link href="../../stylesheets/message.css" rel="stylesheet" media="screen">
+    <link href="../../stylesheets/header.css" rel="stylesheet" media="screen">
+    <link href="../../stylesheets/basic.icon.css" rel="stylesheet" media="screen">
+    <link href="../../stylesheets/markdown_ns.css" rel="stylesheet" media="screen">
+    <link href="../../stylesheets/psycloud.css" rel="stylesheet" media="screen">
+</head>
+<body>
+    <h1 class="ui inverted red block center aligned header">
+        <i class="settings icon"></i>
+        Psycloud Demo Suite
+    </h1>
+    <div class="six column ui grid">
+        <div class="column" >
+            <h2 class="ui header">Components</h2>
+            <div class="ui vertical menu" style="overflow-y:auto" id="compmenu">
+                <!--<a class="item" id="Rectangle"> Rectangle</a>-->
+            </div>
+        </div>
+        <div class="column">
+            <h2 class="ui header">Tests</h2>
+            <div class="ui vertical menu" id="testmenu">
+                <!--<a class="item" id="Rectangle"> Rectangle</a>-->
+            </div>
+        </div>
+        <div class="four wide column">
+            <div class="container" id="container"></div>
+                <p></p>
+                <div id="footer" style="white-space: nowrap;display:inline-block">
+                    <div class="field">
+                        <div class="ui checkbox">
+                            <input type="checkbox" id="checkid" name="autostart" checked="checked">
+                            <label for="checkid">Autostart</label>
+                        </div>
+                        <div class="ui small blue button" id="start" style="margin-left:10px;width:100px">Start</div>
+                        <div class="ui small blue button" id="stop" style="margin-left:10px;width:100px">Stop</div>
+
+                    </div>
+
+
+
+                </div>
+        </div>
+    </div>
+    <script type="text/javascript" src="../../javascripts/Psycloud.js"></script>
+    <script type="text/javascript" src="./demo.js"></script>
+</body>
+</html>

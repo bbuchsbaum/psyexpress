@@ -20,6 +20,8 @@ class Picture extends Stimulus
         height: @spec.height or @imageObj.height
       })
 
+
+
     @imageObj.src = @spec.url
 
 

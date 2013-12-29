@@ -3,7 +3,9 @@ Q = require("q")
 TAFFY = require("taffydb").taffy
 utils = require("./utils")
 DataTable = require("./datatable").DataTable
-
+Bacon = require("./lib/Bacon").Bacon
+KineticStimFactory = require("./elements").KineticStimFactory
+Background = require("./components/canvas/background").Background
 
 
 exports.EventData =
@@ -193,7 +195,7 @@ exports.Trial =
           context.drawBackground()
 
 
-    after: (context) ->
+    after: (context, callback) ->
       ## return a function that executes feedback operation
       =>
         if @feedback?
@@ -201,19 +203,24 @@ exports.Trial =
           spec = @feedback(context.eventDB)
           console.log("spec is", spec)
           event = context.stimFactory.buildEvent(spec, context)
-          event.start(context)
+          event.start(context).then(=>
+            if callback?
+              callback()
+          )
         else
-          Q.fcall(0)
+          Q.fcall(=>
+            if callback?
+              callback()
+          )
 
-
-    start: (context) ->
+    start: (context, callback) ->
 
       farray = RunnableNode.functionList(@children, context,
         (event) ->
           console.log("event callback", event)
       )
 
-      RunnableNode.chainFunctions(_.flatten([@before(context), farray, @after(context)]))
+      RunnableNode.chainFunctions(_.flatten([@before(context), farray, @after(context, callback)]))
 
 
     stop: (context) -> #ev.stop(context) for ev in @events
@@ -350,6 +357,7 @@ exports.ExperimentState =
 exports.ExperimentContext =
   class ExperimentContext
     constructor: (@stimFactory) ->
+
       @eventDB = TAFFY({})
 
       @exState = new ExperimentState()
@@ -364,7 +372,6 @@ exports.ExperimentContext =
 
     updateState: (fun) ->
       @exState = fun(@exState)
-      console.log("new state is", @exState)
       console.log("record is", @exState.toRecord())
       @exState
 
@@ -454,6 +461,90 @@ exports.ExperimentContext =
       $("#htmlcontainer").hide()
       #$("#htmlcontainer").empty()
 
+
+
+class KineticContext extends exports.ExperimentContext
+
+  constructor: (@stage) ->
+    super(new KineticStimFactory())
+    @contentLayer = new Kinetic.Layer({clearBeforeDraw: true})
+    @backgroundLayer = new Kinetic.Layer({clearBeforeDraw: true})
+    @background = new Background([], fill: "white")
+
+    @stage.add(@backgroundLayer)
+    @stage.add(@contentLayer)
+
+    @insertHTMLDiv()
+
+  insertHTMLDiv: ->
+    super
+    $(".kineticjs-content").css("position", "absolute")
+
+
+  setBackground: (newBackground) ->
+    @background = newBackground
+    @backgroundLayer.removeChildren()
+    @background.render(this, @backgroundLayer)
+
+  drawBackground: ->
+    @backgroundLayer.draw()
+
+  clearBackground: ->
+    @backgroundLayer.removeChildren()
+
+  clearContent: (draw = false) ->
+    #@hideHtml()
+    @clearHtml()
+    @backgroundLayer.draw()
+    @contentLayer.removeChildren()
+    if draw
+      @draw()
+
+
+  draw: ->
+    $('#container').focus()
+    #@background.render(this, @backgroundLayer)
+    @contentLayer.draw()
+    #@stage.draw()
+
+
+  width: ->
+    @stage.getWidth()
+
+  height: ->
+    @stage.getHeight()
+
+  offsetX: ->
+    @stage.getOffsetX()
+
+  offsetY: ->
+    @stage.getOffsetY()
+
+
+  keydownStream: ->
+    $("body").asEventStream("keydown")
+
+  keypressStream: ->
+    $("body").asEventStream("keypress")
+
+  mousepressStream: ->
+    class MouseBus
+      constructor: () ->
+        @stream = new Bacon.Bus()
+
+        @handler = (x) =>
+          @stream.push(x)
+
+        @stage.on("mousedown", @handler)
+
+      stop: ->
+        @stage.off("mousedown", @handler)
+        @stream.end()
+
+
+    new MouseBus()
+
+exports.KineticContext = KineticContext
 
 
 buildStimulus = (spec, context) ->
